@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TC 검토 플러그인 v1.0</title>
+<style>
+:root {
+  --primary: #1E3A5F;
+  --primary-l: #2D5282;
+  --err: #DC2626; --err-bg: #FEE2E2; --err-bd: #FECACA;
+  --warn: #D97706; --warn-bg: #FEF3C7; --warn-bd: #FDE68A;
+  --ok: #059669; --ok-bg: #D1FAE5;
+  --text: #1A202C; --muted: #718096;
+  --bg: #F1F5F9; --card: #FFFFFF; --border: #E2E8F0;
+  --r: 10px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.55; }
+
+/* ── Header ── */
+header { background: var(--primary); color: #fff; padding: 0 24px; }
+.hdr { max-width: 1400px; margin: 0 auto; padding: 16px 0; display: flex; align-items: center; justify-content: space-between; }
+header h1 { font-size: 17px; font-weight: 700; letter-spacing: -.3px; }
+header p  { font-size: 12px; opacity: .65; margin-top: 2px; }
+.hdr-ver  { font-size: 11px; opacity: .55; }
+
+/* ── Layout ── */
+main { max-width: 1400px; margin: 0 auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
+
+/* ── Card ── */
+.card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); padding: 20px 24px; }
+.card h2 { font-size: 14px; font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+.step { background: var(--primary); color: #fff; width: 21px; height: 21px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+
+/* ── Input ── */
+.hint { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+textarea { width: 100%; height: 130px; padding: 11px 13px; border: 2px dashed var(--border); border-radius: 8px; font-size: 12px; font-family: inherit; resize: vertical; outline: none; transition: border-color .2s; color: var(--text); }
+textarea:focus { border-color: var(--primary); border-style: solid; }
+textarea::placeholder { color: #CBD5E0; }
+
+/* ── Buttons ── */
+.btns { display: flex; gap: 8px; margin-top: 11px; }
+.btn { padding: 8px 18px; border-radius: 7px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; font-family: inherit; transition: all .15s; }
+.btn-p { background: var(--primary); color: #fff; }
+.btn-p:hover { background: var(--primary-l); }
+.btn-g { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+.btn-g:hover { background: var(--bg); }
+
+/* ── Collapsible ── */
+.col-hdr { display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; }
+.col-hdr h2 { margin-bottom: 0; }
+.arr { font-size: 11px; color: var(--muted); transition: transform .2s; }
+.col-body { display: none; margin-top: 16px; }
+.col-body.open { display: block; }
+
+/* ── Rules Grid ── */
+.r-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.r-group { background: var(--bg); border-radius: 8px; padding: 11px 13px; }
+.r-group h4 { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 7px; }
+.r-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+.chip-e { background: var(--err-bg); color: var(--err); }
+.chip-w { background: var(--warn-bg); color: var(--warn); }
+.chip-i { background: #EFF6FF; color: #2563EB; }
+
+/* ── Summary ── */
+.sum-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+.badge { padding: 4px 13px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+.b-e { background: var(--err-bg); color: var(--err); }
+.b-w { background: var(--warn-bg); color: var(--warn); }
+.b-ok { background: var(--ok-bg); color: var(--ok); }
+.b-i { background: #EFF6FF; color: #3B82F6; }
+
+/* ── Filter Tabs ── */
+.ftabs { display: flex; gap: 6px; margin-bottom: 12px; }
+.ftab { padding: 4px 11px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--muted); font-family: inherit; }
+.ftab.on { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+/* ── Issues List ── */
+.i-list { display: flex; flex-direction: column; gap: 6px; }
+.i-item { padding: 11px 14px; border-radius: 8px; font-size: 12px; }
+.i-item.error   { background: var(--err-bg);  border: 1px solid var(--err-bd); }
+.i-item.warning { background: var(--warn-bg); border: 1px solid var(--warn-bd); }
+.i-head { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+.i-loc  { background: var(--primary); color: #fff; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+.i-col  { font-weight: 700; color: var(--text); font-size: 12px; }
+.i-cat  { color: var(--muted); font-size: 11px; }
+.i-tbadge { font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 3px; }
+.i-tbadge.err { background: #FECACA; color: var(--err); }
+.i-tbadge.wrn { background: #FDE68A; color: var(--warn); }
+.i-diff { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.d-wrong { background: #FECACA; color: #7F1D1D; padding: 3px 10px; border-radius: 5px; font-weight: 600; font-size: 12px; text-decoration: line-through; text-decoration-color: #EF4444; }
+.d-arr   { color: var(--muted); font-size: 15px; font-weight: 300; flex-shrink: 0; }
+.d-right { background: #BBF7D0; color: #064E3B; padding: 3px 10px; border-radius: 5px; font-weight: 600; font-size: 12px; }
+
+/* ── 히스토리 ── */
+.hist-list { display: flex; flex-direction: column; gap: 6px; }
+.hist-item { display: flex; align-items: center; gap: 8px; padding: 9px 13px; border-radius: 7px; border: 1px solid var(--border); cursor: pointer; background: #fff; transition: background .15s; flex-wrap: wrap; }
+.hist-item:hover { background: #EFF6FF; }
+.hist-time { font-size: 11px; color: var(--muted); white-space: nowrap; min-width: 120px; }
+.hist-rows { font-size: 12px; color: var(--text); font-weight: 600; }
+.hist-clear { margin-top: 10px; font-size: 11px; }
+
+/* ── Empty ── */
+.empty { text-align: center; padding: 28px; color: var(--muted); font-size: 13px; }
+.empty-ico { font-size: 28px; margin-bottom: 8px; }
+
+/* ── Table ── */
+.card-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.card-row h2 { margin-bottom: 0; }
+.t-hint { font-size: 11px; color: var(--muted); }
+.twrap { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+thead th { background: var(--primary); color: #fff; padding: 8px 11px; text-align: left; white-space: nowrap; font-weight: 600; position: sticky; top: 0; z-index: 1; }
+tbody tr:nth-child(odd)  td { background: #FAFBFC; }
+tbody tr:nth-child(even) td { background: #fff; }
+tbody tr:hover td { background: #EFF6FF !important; }
+td { padding: 7px 11px; border-bottom: 1px solid var(--border); vertical-align: top; white-space: pre-wrap; word-break: break-word; min-width: 60px; max-width: 260px; }
+td.rn { color: var(--muted); font-size: 10px; text-align: center; min-width: 32px; max-width: 32px; width: 32px; background: #F8FAFC !important; }
+td.ce { background: var(--err-bg) !important;  border-left: 3px solid var(--err);  }
+td.cw { background: var(--warn-bg) !important; border-left: 3px solid var(--warn); }
+mark.he { background: #FCA5A5; border-radius: 3px; padding: 0 2px; font-style: normal; }
+mark.hw { background: #FCD34D; border-radius: 3px; padding: 0 2px; font-style: normal; }
+
+/* ── 인라인 수정안 ── */
+.ifix { display: inline-block; color: #065F46; font-size: 10px; font-weight: 700;
+  background: #D1FAE5; border: 1px solid #6EE7B7; padding: 0 5px;
+  border-radius: 3px; margin-left: 3px; vertical-align: middle; white-space: nowrap; }
+.ifix::before { content: '→ '; }
+.isug { display: inline-block; color: #92400E; font-size: 10px; font-weight: 700;
+  background: #FEF3C7; border: 1px solid #FCD34D; padding: 0 5px;
+  border-radius: 3px; margin-left: 3px; vertical-align: middle; white-space: nowrap; }
+.isug::before { content: '→ '; }
+
+/* ── 데이터 검증 배지 ── */
+.data-warn { display: block; margin-top: 5px; color: #92400E; font-size: 10px; font-weight: 700;
+  background: #FEF3C7; border: 1px solid #FDE68A; padding: 2px 7px; border-radius: 4px; }
+
+/* ── 예상결과 숫자 표시 ── */
+.res-counts { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }
+.ic-e  { display: inline-block; background: var(--err-bg);  color: var(--err);  padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+.ic-w  { display: inline-block; background: var(--warn-bg); color: var(--warn); padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+.ic-ok { color: var(--ok); font-size: 13px; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hdr">
+    <div>
+      <h1>TC 검토 플러그인</h1>
+      <p>TC 표기 규칙 가이드 기반 자동 검토 도구 · 디지털플랫폼부</p>
+    </div>
+    <div class="hdr-ver">v1.0 · 2026.05</div>
+  </div>
+</header>
+
+<main>
+
+  <!-- Step 1 -->
+  <section class="card">
+    <h2><span class="step">1</span> 엑셀 데이터 붙여넣기</h2>
+    <p class="hint">엑셀에서 헤더 포함 전체 범위를 복사(⌘C / Ctrl+C) → 아래에 붙여넣기(⌘V / Ctrl+V) → [검토 실행]</p>
+    <textarea id="pasteArea" placeholder="화면명	화면구분	테스트구분	테스트 시나리오	예상결과	비고&#10;MTS	계좌 영역	조회	계좌번호 노출확인	팝업노출	..."></textarea>
+    <div class="btns">
+      <button class="btn btn-p" onclick="runReview()">검토 실행</button>
+      <button class="btn btn-g" onclick="clearAll()">초기화</button>
+    </div>
+  </section>
+
+  <!-- Step 2 -->
+  <section class="card">
+    <div class="col-hdr" onclick="toggleRules(this)">
+      <h2 style="margin-bottom:0"><span class="step">2</span> 검토 규칙 목록</h2>
+      <span class="arr">▶ 펼쳐보기</span>
+    </div>
+    <div class="col-body" id="rulesBody"></div>
+  </section>
+
+  <!-- Step 3 -->
+  <section class="card" id="resSection" style="display:none">
+    <div class="col-hdr" onclick="toggleIssues(this)">
+      <h2 style="margin-bottom:0"><span class="step">3</span> 검토 결과 &nbsp;<span id="sumRow" style="display:inline-flex;gap:6px;flex-wrap:wrap;"></span></h2>
+      <span class="arr">▶ 펼쳐보기</span>
+    </div>
+    <div class="col-body" id="issueBody">
+      <div class="ftabs" id="ftabs" style="margin-top:14px"></div>
+      <div class="i-list" id="iList"></div>
+    </div>
+  </section>
+
+  <!-- 히스토리 -->
+  <section class="card" id="histSection" style="display:none">
+    <div class="col-hdr" onclick="toggleSection(this,'histBody')">
+      <h2 style="margin-bottom:0">검토 히스토리</h2>
+      <span class="arr">▼ 접기</span>
+    </div>
+    <div class="col-body open" id="histBody">
+      <div class="hist-list" id="histList"></div>
+      <button class="btn btn-g hist-clear" onclick="clearHistory()">히스토리 전체 삭제</button>
+    </div>
+  </section>
+
+  <!-- Step 4 -->
+  <section class="card" id="tblSection" style="display:none">
+    <div class="card-row">
+      <h2 style="margin-bottom:0"><span class="step">4</span> TC 표</h2>
+      <span class="t-hint">빨간 셀: 오류 · 노란 셀: 경고 · 마우스 올리면 상세</span>
+    </div>
+    <div class="twrap"><div id="tblOut"></div></div>
+  </section>
+
+</main>
+
+<script>
+// ════════════════════════════════════════════
+// 규칙 정의
+// ════════════════════════════════════════════
+const RULES = [
+  // ── 띄어쓰기 오류 ──
+  { id:'R01', p:/팝업노출/g,       s:'팝업 노출',  fix:'팝업 노출',  t:'error',   c:'띄어쓰기' },
+  { id:'R02', p:/화면노출/g,       s:'화면 노출',  fix:'화면 노출',  t:'error',   c:'띄어쓰기' },
+  { id:'R03', p:/선택시/g,         s:'선택 시',    fix:'선택 시',    t:'error',   c:'띄어쓰기' },
+  { id:'R04', p:/노출확인/g,       s:'노출 확인',  fix:'노출 확인',  t:'error',   c:'띄어쓰기' },
+  { id:'R05', p:/화면내/g,         s:'화면 내',    fix:'화면 내',    t:'error',   c:'띄어쓰기' },
+  { id:'R06', p:/높은순/g,         s:'높은 순',    fix:'높은 순',    t:'error',   c:'띄어쓰기' },
+  { id:'R07', p:/검색후/g,         s:'검색 후',    fix:'검색 후',    t:'error',   c:'띄어쓰기' },
+  { id:'R08', p:/진입시/g,         s:'진입 시',    fix:'진입 시',    t:'error',   c:'띄어쓰기' },
+  { id:'R09', p:/클릭시/g,         s:'클릭 시',    fix:'클릭 시',    t:'error',   c:'띄어쓰기' },
+  { id:'R10', p:/이동시/g,         s:'이동 시',    fix:'이동 시',    t:'error',   c:'띄어쓰기' },
+  { id:'R11', p:/완료시/g,         s:'완료 시',    fix:'완료 시',    t:'error',   c:'띄어쓰기' },
+  { id:'R12', p:/실패시/g,         s:'실패 시',    fix:'실패 시',    t:'error',   c:'띄어쓰기' },
+  { id:'R13', p:/입력시/g,         s:'입력 시',    fix:'입력 시',    t:'error',   c:'띄어쓰기' },
+  { id:'R14', p:/확인시/g,         s:'확인 시',    fix:'확인 시',    t:'error',   c:'띄어쓰기' },
+  // ── 붙여쓰기 오류 ──
+  { id:'R15', p:/투자성향\s+별/g,  s:'투자성향별', fix:'투자성향별', t:'error',   c:'붙여쓰기' },
+  { id:'R16', p:/화면\s+상(?=[\s,.\n\r]|$)/g, s:'화면상', fix:'화면상', t:'error', c:'붙여쓰기' },
+  { id:'R17', p:/최신\s+순/g,      s:'최신순',     fix:'최신순',     t:'error',   c:'붙여쓰기' },
+  // ── 용어 오류 ──
+  { id:'R18', p:/알럿/g,           s:'Alert',      fix:'Alert',      t:'error',   c:'용어오류' },
+  { id:'R19', p:/\balert\b/g,      s:'Alert',      fix:'Alert',      t:'error',   c:'용어오류' },
+  { id:'R20', p:/드롭\s*다운/g,    s:'Select Box', fix:'Select Box', t:'error',   c:'용어오류' },
+  { id:'R21', p:/드랍다운/g,       s:'Select Box', fix:'Select Box', t:'error',   c:'용어오류' },
+  { id:'R22', p:/\bdefault\b/g,    s:'Default',    fix:'Default',    t:'error',   c:'용어오류' },
+  { id:'R23', p:/디폴트/g,         s:'Default',    fix:'Default',    t:'error',   c:'용어오류' },
+  // ── 용어 검토 ──
+  { id:'R24', p:/레이어\s*팝업/g,  s:'바텀시트 또는 팝업(P) 권장',           t:'warning', c:'용어검토' },
+  { id:'R25', p:/탭\(tap\)/gi,     s:'선택',       fix:'선택',       t:'warning', c:'용어검토' },
+  // ── 율/률 오류 ──
+  { id:'R26', p:/과세률/g,         s:'과세율',     fix:'과세율',     t:'error',   c:'율/률' },
+  { id:'R27', p:/할인률/g,         s:'할인율',     fix:'할인율',     t:'error',   c:'율/률' },
+  { id:'R28', p:/전환률/g,         s:'전환율',     fix:'전환율',     t:'error',   c:'율/률' },
+  { id:'R29', p:/적립율/g,         s:'적립률',     fix:'적립률',     t:'error',   c:'율/률' },
+  { id:'R30', p:/환급율/g,         s:'환급률',     fix:'환급률',     t:'error',   c:'율/률' },
+  { id:'R31', p:/수익율/g,         s:'수익률',     fix:'수익률',     t:'error',   c:'율/률' },
+  // ── 문장부호 ──
+  { id:'R32', p:/ \/ /g,           s:'/',          fix:'/',          t:'error',   c:'문장부호' },
+  { id:'R33', p:/\^/g,             s:'공백( )으로 수정', fix:' ',    t:'error',   c:'문장부호' },
+  // ── 쌍점 오사용 ──
+  { id:'R34', p:/라디오\s*버튼\s*:/g, s:'라디오 버튼 [항목명] 선택  * [옵션1(Default), 옵션2] 형식으로', t:'warning', c:'쌍점오사용' },
+  { id:'R35', p:/Select\s*Box\s*:/g,  s:'[항목명] Select Box 선택  * [옵션1(Default), 옵션2] 형식으로',  t:'warning', c:'쌍점오사용' },
+  { id:'R39', p:/주식\s*:/g,          s:'주식 적용단위 선택  * 대금(Default), 수량 형식으로',             t:'warning', c:'쌍점오사용' },
+  // ── 문체 ──
+  { id:'R36', p:/[가-힣]+며(?=[,\s])/g, s:'"및"으로 연결 권장 (서술형 지양)', t:'warning', c:'문체' },
+  // ── 계좌 표기 ──
+  { id:'R37', p:/계좌\s*선택\s*팝업/g,  s:'계좌 선택 바텀시트 (MTS)', fix:'계좌 선택 바텀시트', t:'warning', c:'계좌표기' },
+  { id:'R38', p:/계좌번호\s*노출확인/g,  s:'계좌번호 노출 확인',       fix:'계좌번호 노출 확인', t:'error',   c:'계좌표기' },
+];
+
+// 규칙 표시용 데이터 (패널)
+const RULES_UI = [
+  { cat:'띄어쓰기 오류', t:'error',
+    items:[['팝업노출','팝업 노출'],['화면노출','화면 노출'],['선택시','선택 시'],
+           ['노출확인','노출 확인'],['화면내','화면 내'],['높은순','높은 순'],
+           ['검색후','검색 후'],['진입시','진입 시'],['클릭시','클릭 시'],
+           ['이동시','이동 시'],['완료시','완료 시'],['실패시','실패 시'],
+           ['입력시','입력 시'],['확인시','확인 시']] },
+  { cat:'붙여쓰기 오류', t:'error',
+    items:[['투자성향 별','투자성향별'],['화면 상','화면상'],['최신 순','최신순']] },
+  { cat:'용어 오류', t:'error',
+    items:[['알럿 / alert','Alert'],['드롭다운 / 드랍다운','Select Box'],
+           ['default','Default'],['디폴트','Default']] },
+  { cat:'용어 검토', t:'warning',
+    items:[['레이어팝업','바텀시트 또는 팝업(P)'],['탭(tap)','선택']] },
+  { cat:'율/률 오류', t:'error',
+    items:[['과세률','과세율'],['할인률','할인율'],['전환률','전환율'],
+           ['적립율','적립률'],['환급율','환급률'],['수익율','수익률']] },
+  { cat:'문장부호', t:'error',
+    items:[[' / ','/ (앞뒤 공백 제거)'],['^','공백으로 수정']] },
+  { cat:'쌍점 오사용', t:'warning',
+    items:[
+      ['라디오버튼: 일자별(Default), 시간대별 선택', '라디오 버튼 일자별 선택  * 일자별(Default), 시간대별'],
+      ['Select Box: 당일(Default), 전일',           '시장 종류 Select Box 선택  * 당일(Default), 전일'],
+      ['주식: 대금(Default), 수량 선택',             '주식 적용단위 선택  * 대금(Default), 수량'],
+    ] },
+  { cat:'문체', t:'warning',
+    items:[['~며,','서술형 지양 → "및"으로 연결']] },
+  { cat:'데이터 검증 (예상결과)', t:'warning',
+    items:[
+      ['팝업 노출','팝업 노출되며 계좌 정보 및 신청 내역 데이터 노출'],
+      ['상품명 노출','상품명, 상품코드, 수익률 등 상품 정보 데이터 노출'],
+      ['화면 이동','상세 화면으로 이동하며 선택한 상품 정보 및 관련 데이터 노출'],
+      ['목록 노출 / 리스트 노출','조회 조건에 해당하는 목록 데이터 정상 노출'],
+      ['버튼 노출 / 메뉴 노출','해당 버튼/메뉴 노출 및 선택 가능 여부 확인'],
+      ['탭 선택 시 각 탭별 나열 X','Default 탭 데이터 노출 + 각 탭 선택 시 정상 노출 로 통합 작성'],
+    ] },
+  { cat:'계좌번호 표기 형식 참조', t:'info',
+    items:[
+      ['MTS 기본','123-45-678910 [종합계좌] %김신한%'],
+      ['MTS 세부계좌','123-45-678910-001 [종합계좌] %김신한%'],
+      ['MTS 연금','123-45-678910-101 [연금저축] %김신한%'],
+      ['HTS 기본','123-45-678910 %김신한% [비밀번호]'],
+      ['HTS 세부계좌','123-45-678910 %김신한% [001] [종합계좌]'],
+      ['HTS 연금','123-45-678910 %김신한% [101] [연금저축]'],
+      ['홈페이지 기본','123-45-678910 %김신한% [비밀번호]'],
+      ['홈페이지 세부','123-45-678910 %김신한% [001 증권종합] [비밀번호]'],
+      ['홈페이지 연금','123-45-678910 %김신한% [101 연금저축] [비밀번호]'],
+      ['WTS 기본','123-45-678910 %김신한% [비밀번호]'],
+      ['WTS 세부','123-45-678910 %김신한% [001 증권종합] [비밀번호]'],
+    ] },
+  { cat:'계좌 선택 표기', t:'warning',
+    items:[
+      ['계좌 선택 팝업 (MTS)','계좌 선택 바텀시트'],
+      ['계좌번호 노출확인','계좌번호 노출 확인'],
+    ] },
+];
+
+// 예상결과 단순 표현 감지 (데이터 구체화 필요)
+const SIMPLE_RES = [
+  // 노출 단순 표현
+  /^팝업\s*노출\.?$/, /^화면\s*노출\.?$/, /^정상\s*노출\.?$/,
+  /^노출\s*확인\.?$/, /^노출\.?$/, /^데이터\s*노출\.?$/,
+  // 이동 단순 표현
+  /^화면\s*이동\.?$/, /^이동\.?$/,
+  // 단순 확인 표현
+  /^정상\s*확인\.?$/, /^확인\.?$/, /^데이터\s*확인\.?$/,
+  // 목록/버튼/메뉴 단순 표현
+  /^상품명\s*노출\.?$/, /^목록\s*노출\.?$/, /^리스트\s*노출\.?$/,
+  /^버튼\s*노출\.?$/, /^메뉴\s*노출\.?$/, /^화면\s*표시\.?$/,
+  // 처리 단순 표현
+  /^처리\s*완료\.?$/, /^완료\.?$/, /^처리\.?$/,
+];
+
+// ════════════════════════════════════════════
+// 핵심 엔진
+// ════════════════════════════════════════════
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function findViol(text) {
+  const res = [];
+  for (const rule of RULES) {
+    const re = new RegExp(rule.p.source, rule.p.flags.includes('g') ? rule.p.flags : rule.p.flags + 'g');
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      res.push({ start: m.index, end: m.index + m[0].length, matched: m[0], rule });
+    }
+  }
+  res.sort((a, b) => a.start - b.start || b.end - a.end);
+  const out = []; let last = -1;
+  for (const v of res) { if (v.start >= last) { out.push(v); last = v.end; } }
+  return out;
+}
+
+function buildHtml(text, viols) {
+  if (!viols.length) return esc(text);
+  let html = '', pos = 0;
+  for (const v of viols) {
+    html += esc(text.slice(pos, v.start));
+    const cls = v.rule.t === 'error' ? 'he' : 'hw';
+    html += `<mark class="${cls}" title="${esc(v.rule.c + ': ' + v.rule.s)}">${esc(v.matched)}</mark>`;
+    if (v.rule.fix !== undefined) {
+      html += `<span class="ifix">${esc(v.rule.fix)}</span>`;
+    } else {
+      html += `<span class="isug">${esc(v.rule.s)}</span>`;
+    }
+    pos = v.end;
+  }
+  return html + esc(text.slice(pos));
+}
+
+// 수정안 텍스트 생성 (fix 있는 규칙만 오른쪽→왼쪽 순서로 치환)
+function buildCorrected(text, viols) {
+  const fixable = viols.filter(v => v.rule.fix !== undefined);
+  if (!fixable.length) return null;
+  let result = text;
+  [...fixable].sort((a, b) => b.start - a.start).forEach(v => {
+    result = result.slice(0, v.start) + v.rule.fix + result.slice(v.end);
+  });
+  return result === text ? null : result;
+}
+
+function isResultCol(name) {
+  return name && name.replace(/\s/g, '').includes('예상결과');
+}
+
+function getCellIssues(text, colName) {
+  const viols = findViol(text);
+  const issues = [];
+  const seen = new Set();
+  for (const v of viols) {
+    const key = v.rule.id + ':' + v.matched;
+    if (!seen.has(key)) {
+      seen.add(key);
+      issues.push({ type: v.rule.t, cat: v.rule.c, matched: v.matched, suggest: v.rule.s,
+        msg: `[${v.rule.c}] "${v.matched}" → "${v.rule.s}"` });
+    }
+  }
+  // 예상결과 단순 표현 체크
+  if (colName && colName.replace(/\s/g,'').includes('예상결과')) {
+    const t = text.trim();
+    if (t && t.length < 25 && SIMPLE_RES.some(p => p.test(t))) {
+      issues.push({ type: 'warning', cat: '데이터 검증', matched: t,
+        suggest: '구체적 데이터 명시',
+        msg: `[데이터 검증] 단순 표현 → 어떤 데이터가 어떻게 노출되는지 구체적으로 작성 필요` });
+    }
+  }
+  return issues;
+}
+
+// ════════════════════════════════════════════
+// 메인 실행
+// ════════════════════════════════════════════
+let ALL_ISSUES = [];
+
+// 엑셀 클립보드 TSV 파서 — 셀 내부 줄바꿈(따옴표 처리) 지원
+function parseTSV(raw) {
+  const rows = [];
+  let row = [], cell = '', inQ = false;
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (inQ) {
+      if (ch === '"' && raw[i+1] === '"') { cell += '"'; i++; }
+      else if (ch === '"') { inQ = false; }
+      else { cell += ch; }
+    } else {
+      if      (ch === '"')  { inQ = true; }
+      else if (ch === '\t') { row.push(cell.trim()); cell = ''; }
+      else if (ch === '\r' && raw[i+1] === '\n') { row.push(cell.trim()); rows.push(row); row = []; cell = ''; i++; }
+      else if (ch === '\n') { row.push(cell.trim()); rows.push(row); row = []; cell = ''; }
+      else { cell += ch; }
+    }
+  }
+  if (cell || row.length) { row.push(cell.trim()); rows.push(row); }
+  return rows.filter(r => r.some(c => c !== ''));
+}
+
+function runReview() {
+  const raw = document.getElementById('pasteArea').value.trim();
+  if (!raw) { alert('데이터를 먼저 붙여넣기 해주세요.'); return; }
+
+  const rows = parseTSV(raw);
+
+  if (rows.length < 2) { alert('헤더 + 1개 이상의 데이터 행이 필요합니다.'); return; }
+
+  const headers = rows[0];
+  const data = rows.slice(1);
+  const issueMap = {};
+  ALL_ISSUES = [];
+
+  for (let r = 0; r < data.length; r++) {
+    for (let c = 0; c < headers.length; c++) {
+      const cell = data[r][c] || '';
+      if (!cell) continue;
+      const issues = getCellIssues(cell, headers[c]);
+      if (issues.length) {
+        issueMap[`${r}-${c}`] = issues;
+        issues.forEach(iss => ALL_ISSUES.push({ row: r + 2, col: c, colName: headers[c] || `${c+1}열`, iss }));
+      }
+    }
+  }
+
+  const errCnt  = ALL_ISSUES.filter(i => i.iss.type === 'error').length;
+  const warnCnt = ALL_ISSUES.filter(i => i.iss.type === 'warning').length;
+
+  renderTable(headers, data, issueMap);
+  renderResults(ALL_ISSUES);
+  saveHistory(raw, errCnt, warnCnt, data.length);
+
+  document.getElementById('resSection').style.display = 'block';
+  document.getElementById('tblSection').style.display = 'block';
+  document.getElementById('tblSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ════════════════════════════════════════════
+// 렌더러
+// ════════════════════════════════════════════
+function renderTable(headers, data, issueMap) {
+  let html = '<table><thead><tr><th>#</th>';
+  headers.forEach(h => { html += `<th>${esc(h)}</th>`; });
+  html += '</tr></thead><tbody>';
+  data.forEach((row, r) => {
+    html += `<tr><td class="rn">${r + 2}</td>`;
+    headers.forEach((h, c) => {
+      const cell   = row[c] || '';
+      const issues = issueMap[`${r}-${c}`] || [];
+      const viols  = findViol(cell);
+      let cls = '';
+      if (issues.some(i => i.type === 'error'))        cls = 'ce';
+      else if (issues.some(i => i.type === 'warning')) cls = 'cw';
+      const tip = issues.map(i => i.msg).join('\n');
+
+      // 원문 그대로 + RULES 위반 인라인 표시
+      let content = buildHtml(cell, viols);
+      // 데이터 검증 경고 (SIMPLE_RES) → 셀 하단 배지
+      const dataIssues = issues.filter(i => i.cat === '데이터 검증');
+      if (dataIssues.length) {
+        content += `<span class="data-warn">⚠ 데이터 구체화 필요 — 어떤 데이터가 어떻게 노출되는지 명시</span>`;
+      }
+      html += `<td class="${cls}" title="${esc(tip)}">${content}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('tblOut').innerHTML = html;
+}
+
+function renderResults(issues) {
+  const errs  = issues.filter(i => i.iss.type === 'error').length;
+  const warns = issues.filter(i => i.iss.type === 'warning').length;
+
+  // 헤더에 요약 배지만 (항상 보임)
+  let sum = '';
+  if (!errs && !warns) {
+    sum = '<span class="badge b-ok">✓ 이슈 없음</span>';
+  } else {
+    if (errs)  sum += `<span class="badge b-e">오류 ${errs}건</span>`;
+    if (warns) sum += `<span class="badge b-w">경고 ${warns}건</span>`;
+  }
+  document.getElementById('sumRow').innerHTML = sum;
+
+  // 상세 목록 (접힌 상태)
+  document.getElementById('ftabs').innerHTML =
+    `<button class="ftab on"  onclick="filterIssues('all',this)">전체 (${issues.length})</button>
+     <button class="ftab"     onclick="filterIssues('error',this)">오류 (${errs})</button>
+     <button class="ftab"     onclick="filterIssues('warning',this)">경고 (${warns})</button>`;
+  renderList(issues);
+
+  // 기본 접힘 상태 유지
+  document.getElementById('issueBody').classList.remove('open');
+}
+
+function renderList(issues) {
+  if (!issues.length) {
+    document.getElementById('iList').innerHTML =
+      '<div class="empty"><div class="empty-ico">✓</div><p>이슈가 없습니다!</p></div>';
+    return;
+  }
+  let html = '';
+  issues.forEach(({ row, colName, iss }) => {
+    const label   = iss.type === 'error' ? '오류' : '경고';
+    const badgeCls = iss.type === 'error' ? 'err' : 'wrn';
+    html += `<div class="i-item ${iss.type}">
+      <div class="i-head">
+        <span class="i-loc">${row}행</span>
+        <span class="i-col">${esc(colName)}</span>
+        <span class="i-cat">${esc(iss.cat)}</span>
+        <span class="i-tbadge ${badgeCls}">${label}</span>
+      </div>
+      <div class="i-diff">
+        <span class="d-wrong">${esc(iss.matched)}</span>
+        <span class="d-arr">→</span>
+        <span class="d-right">${esc(iss.suggest)}</span>
+      </div>
+    </div>`;
+  });
+  document.getElementById('iList').innerHTML = html;
+}
+
+function filterIssues(type, btn) {
+  document.querySelectorAll('.ftab').forEach(t => t.classList.remove('on'));
+  btn.classList.add('on');
+  const filtered = type === 'all' ? ALL_ISSUES : ALL_ISSUES.filter(i => i.iss.type === type);
+  renderList(filtered);
+}
+
+// ════════════════════════════════════════════
+// 규칙 패널 초기화
+// ════════════════════════════════════════════
+function initRules() {
+  let html = '<div class="r-grid">';
+  RULES_UI.forEach(({ cat, t, items }) => {
+    html += `<div class="r-group"><h4>${esc(cat)}</h4><div class="r-chips">`;
+    items.forEach(([wrong, right]) => {
+      const chipCls = t === 'error' ? 'e' : t === 'info' ? 'i' : 'w';
+      html += `<span class="chip chip-${chipCls}" title="${esc(right)}">${esc(wrong)} → ${esc(right)}</span>`;
+    });
+    html += '</div></div>';
+  });
+  html += '</div>';
+  document.getElementById('rulesBody').innerHTML = html;
+}
+
+function toggleRules(hdr) {
+  const body = hdr.nextElementSibling;
+  const arr  = hdr.querySelector('.arr');
+  const open = body.classList.toggle('open');
+  arr.textContent = open ? '▼ 접기' : '▶ 펼쳐보기';
+}
+
+function toggleIssues(hdr) {
+  const body = document.getElementById('issueBody');
+  const arr  = hdr.querySelector('.arr');
+  const open = body.classList.toggle('open');
+  arr.textContent = open ? '▼ 접기' : '▶ 펼쳐보기';
+}
+
+function clearAll() {
+  document.getElementById('pasteArea').value = '';
+  document.getElementById('tblSection').style.display = 'none';
+  document.getElementById('resSection').style.display = 'none';
+  ALL_ISSUES = [];
+}
+
+// ════════════════════════════════════════════
+// 히스토리
+// ════════════════════════════════════════════
+function getHistory() {
+  try { return JSON.parse(localStorage.getItem('tc_history') || '[]'); } catch { return []; }
+}
+
+function saveHistory(raw, errCnt, warnCnt, rowCount) {
+  const history = getHistory();
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const time = `${now.getFullYear()}.${pad(now.getMonth()+1)}.${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  history.unshift({ id: Date.now(), time, errCnt, warnCnt, rowCount, raw });
+  if (history.length > 20) history.pop();
+  localStorage.setItem('tc_history', JSON.stringify(history));
+  renderHistory();
+}
+
+function renderHistory() {
+  const history = getHistory();
+  const sec = document.getElementById('histSection');
+  if (!history.length) { sec.style.display = 'none'; return; }
+  sec.style.display = 'block';
+  let html = '';
+  history.forEach(h => {
+    const badges = h.errCnt  ? `<span class="badge b-e">오류 ${h.errCnt}건</span>` : '';
+    const wbadge = h.warnCnt ? `<span class="badge b-w">경고 ${h.warnCnt}건</span>` : '';
+    const ok     = !h.errCnt && !h.warnCnt ? `<span class="badge b-ok">✓ 이슈 없음</span>` : '';
+    html += `<div class="hist-item" onclick="restoreHistory(${h.id})" title="클릭하면 해당 검토 복원">
+      <span class="hist-time">${h.time}</span>
+      <span class="hist-rows">${h.rowCount}행</span>
+      ${badges}${wbadge}${ok}
+    </div>`;
+  });
+  document.getElementById('histList').innerHTML = html;
+}
+
+function restoreHistory(id) {
+  const item = getHistory().find(h => h.id === id);
+  if (!item) return;
+  document.getElementById('pasteArea').value = item.raw;
+  runReview();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function clearHistory() {
+  if (!confirm('히스토리를 전부 삭제할까요?')) return;
+  localStorage.removeItem('tc_history');
+  renderHistory();
+}
+
+function toggleSection(hdr, bodyId) {
+  const body = document.getElementById(bodyId);
+  const arr  = hdr.querySelector('.arr');
+  const open = body.classList.toggle('open');
+  arr.textContent = open ? '▼ 접기' : '▶ 펼쳐보기';
+}
+
+// 초기화
+document.addEventListener('DOMContentLoaded', () => { initRules(); renderHistory(); });
+</script>
+</body>
+</html>
