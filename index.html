@@ -119,6 +119,9 @@ textarea::placeholder { color: #CBD5E0; }
 .card-row h2 { margin-bottom: 0; }
 .t-hint { font-size: 11px; color: var(--muted); }
 .twrap { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
+.btn-copy { background: #F0FDF4; color: #15803D; border: 1px solid #86EFAC; font-size: 12px; padding: 7px 14px; white-space: nowrap; flex-shrink: 0; }
+.btn-copy:hover { background: #DCFCE7; }
+.copy-toast { display: none; margin: 8px 0 10px; padding: 9px 14px; background: #ECFDF5; border: 1px solid #6EE7B7; border-radius: 8px; font-size: 12px; color: #065F46; font-weight: 600; }
 table { width: 100%; border-collapse: collapse; font-size: 12px; }
 thead th { background: var(--primary); color: #fff; padding: 8px 11px; text-align: left; white-space: nowrap; font-weight: 600; position: sticky; top: 0; z-index: 1; }
 thead th.th-target { background: #1a4f7e; border-bottom: 3px solid #60A5FA; }
@@ -224,10 +227,16 @@ mark.hw { background: #FCD34D; border-radius: 3px; padding: 0 2px; font-style: n
 
   <!-- Step 4 -->
   <section class="card" id="tblSection" style="display:none">
-    <div class="card-row">
-      <h2 style="margin-bottom:0"><span class="step">4</span> TC 표</h2>
-      <span class="t-hint">빨간 셀: 오류 · 노란 셀: 경고 · 파란 헤더(✓): 검토 대상 컬럼</span>
+    <div class="card-row" style="align-items:flex-start;gap:12px">
+      <div>
+        <h2 style="margin-bottom:4px"><span class="step">4</span> TC 표</h2>
+        <span class="t-hint">빨간 셀: 오류 · 노란 셀: 경고 · 파란 헤더(✓): 검토 대상 컬럼</span>
+      </div>
+      <button class="btn btn-copy" id="copyBtn" onclick="copyTSV()">
+        📋 피그마/엑셀 복사
+      </button>
     </div>
+    <div id="copyToast" class="copy-toast">클립보드에 복사됐습니다 — 피그마(또는 엑셀)에서 Cmd+V 하세요</div>
     <div class="twrap"><div id="tblOut"></div></div>
   </section>
 
@@ -626,6 +635,8 @@ function getCellIssues(text, colName) {
 // 메인 실행
 // ════════════════════════════════════════════
 let ALL_ISSUES = [];
+let _tsvHeaders = [];
+let _tsvData = [];
 
 function runReview() {
   const raw = document.getElementById('pasteArea').value.trim();
@@ -651,6 +662,8 @@ function runReview() {
     showFmtBanner('tsv', headers);
   }
 
+  _tsvHeaders = headers;
+  _tsvData = data;
   const issueMap = {};
   ALL_ISSUES = [];
 
@@ -852,6 +865,25 @@ function clearAll() {
 // ════════════════════════════════════════════
 function getHistory() {
   try { return JSON.parse(localStorage.getItem('tc_history') || '[]'); } catch { return []; }
+}
+
+function copyTSV() {
+  if (!_tsvHeaders.length) return;
+  const esc = v => {
+    const s = (v || '').replace(/"/g, '""');
+    return s.includes('\t') || s.includes('\n') || s.includes('"') ? `"${s}"` : s;
+  };
+  const lines = [_tsvHeaders.map(esc).join('\t')];
+  _tsvData.forEach(row => {
+    lines.push(_tsvHeaders.map((_, i) => esc(row[i] || '')).join('\t'));
+  });
+  navigator.clipboard.writeText(lines.join('\n')).then(() => {
+    const toast = document.getElementById('copyToast');
+    toast.style.display = 'block';
+    setTimeout(() => { toast.style.display = 'none'; }, 3500);
+  }).catch(() => {
+    alert('복사 실패 — 브라우저 권한을 확인해주세요.');
+  });
 }
 
 function saveHistory(raw, errCnt, warnCnt, rowCount) {
