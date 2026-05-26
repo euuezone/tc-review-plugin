@@ -198,11 +198,14 @@ mark.hw { background: #FCD34D; border-radius: 3px; padding: 0 2px; font-style: n
   tbody tr:nth-child(odd) td, tbody tr:nth-child(even) td {
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
+  td { max-width: none !important; overflow: visible !important; white-space: pre-wrap !important; word-break: break-word !important; }
   .data-warn { display: none !important; }
   mark.he { background: #FCA5A5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   mark.hw { background: #FCD34D !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .ifix { display: inline-block !important; background: #D1FAE5 !important; color: #065F46 !important; border: 1px solid #6EE7B7 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .isug { display: inline-block !important; background: #FEF3C7 !important; color: #92400E !important; border: 1px solid #FCD34D !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .ifix { display: inline-block !important; background: #D1FAE5 !important; color: #065F46 !important; border: 1px solid #6EE7B7 !important; padding: 0 5px !important; border-radius: 3px !important; font-size: 10px !important; font-weight: 700 !important; white-space: nowrap !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .isug { display: inline-block !important; background: #FEF3C7 !important; color: #92400E !important; border: 1px solid #FCD34D !important; padding: 0 5px !important; border-radius: 3px !important; font-size: 10px !important; font-weight: 700 !important; white-space: nowrap !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .ifix::before { content: '→ ' !important; }
+  .isug::before { content: '→ ' !important; }
 }
 </style>
 </head>
