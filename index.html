@@ -420,9 +420,7 @@ const SIMPLE_RES = [
 // 피그마 15컬럼 구조
 const FIGMA_COLS = [
   'TEST ID','화면번호','화면명','화면구분',
-  '테스트 구분','테스트 시나리오','예상결과',
-  '1차 통합 테스트','비고','테스트일자',
-  '담당자','결과','AS-IS','TO-BE','지라 ID'
+  '테스트 구분','테스트 시나리오','예상결과'
 ];
 
 // 검토 제외 컬럼 (숫자 ID / 메타데이터)
@@ -528,10 +526,10 @@ function parseFigmaRow(line) {
     segments = line.split(/   +/).map(s => s.trim()).filter(s => s.length > 0);
   }
 
-  const cells = new Array(15).fill('');
+  const cells = new Array(FIGMA_COLS.length).fill('');
   let colIdx = 0;
 
-  for (let si = 0; si < segments.length && colIdx < 15; si++) {
+  for (let si = 0; si < segments.length && colIdx < FIGMA_COLS.length; si++) {
     const seg = segments[si];
 
     // 첫 번째 세그먼트만 특수 처리: TEST ID / 화면번호 포함 가능
@@ -965,11 +963,26 @@ function copyForFigma() {
     })
   );
 
+  // 피그마 표는 핵심 7개 컬럼만 포함
+  const figmaColIndices = FIGMA_COLS.map(col => _tsvHeaders.indexOf(col));
+  const figmaHeaders = figmaColIndices
+    .map((i, pos) => i >= 0 ? _tsvHeaders[i] : FIGMA_COLS[pos]);
+  const figmaRows = correctedRows.map(row =>
+    figmaColIndices.map(i => (i >= 0 ? row[i] : '') || '')
+  );
+  // issueSummary 키를 새 컬럼 인덱스 기준으로 재매핑
+  const figmaIssues = {};
+  for (const key in issueSummary) {
+    const [r, c] = key.split('-').map(Number);
+    const newC = figmaColIndices.indexOf(c);
+    if (newC >= 0) figmaIssues[`${r}-${newC}`] = issueSummary[key];
+  }
+
   const payload = JSON.stringify({
     tc: true,
-    headers: _tsvHeaders,
-    rows: correctedRows,
-    issues: issueSummary
+    headers: figmaHeaders,
+    rows: figmaRows,
+    issues: figmaIssues
   });
 
   navigator.clipboard.writeText(payload).then(() => {
