@@ -926,12 +926,41 @@ function showToast(msg) {
   setTimeout(() => { toast.style.display = 'none'; }, 3500);
 }
 
-/** 피그마 복사 — TSV 형식 + 플러그인 안내 표시 */
+/** 피그마 복사 — 수정안 적용 + 이슈 위치 포함 JSON */
 function copyForFigma() {
   if (!_tsvHeaders.length) return;
-  navigator.clipboard.writeText(buildTSV()).then(() => {
+
+  // 셀별 이슈 심각도 요약
+  const issueSummary = {};
+  for (const key in _issueMap) {
+    const iss = _issueMap[key];
+    if (iss.some(i => i.type === 'error'))        issueSummary[key] = 'error';
+    else if (iss.some(i => i.type === 'warning')) issueSummary[key] = 'warning';
+  }
+
+  // fix 가능한 오류는 수정안으로 치환
+  const correctedRows = _tsvData.map((row, r) =>
+    _tsvHeaders.map((_, c) => {
+      const cell = (row[c] || '').trim();
+      const viols = findViol(cell);
+      const fixable = viols.filter(v => v.rule.fix !== undefined);
+      if (!fixable.length) return cell;
+      let result = cell;
+      [...fixable].sort((a, b) => b.start - a.start)
+        .forEach(v => { result = result.slice(0, v.start) + v.rule.fix + result.slice(v.end); });
+      return result;
+    })
+  );
+
+  const payload = JSON.stringify({
+    tc: true,
+    headers: _tsvHeaders,
+    rows: correctedRows,
+    issues: issueSummary
+  });
+
+  navigator.clipboard.writeText(payload).then(() => {
     showToast('복사됐습니다 — 피그마에서 TC 표 붙여넣기 플러그인을 실행하세요');
-    // 플러그인 설치 안내 패널 표시
     const guide = document.getElementById('pluginGuide');
     guide.classList.add('open');
     guide.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
