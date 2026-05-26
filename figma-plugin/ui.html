@@ -13,6 +13,7 @@ h2 { font-size: 14px; font-weight: 700; color: #1E3A5F; margin-bottom: 6px; }
   padding: 12px; margin-bottom: 12px; }
 .preview-title { font-size: 13px; color: #1D4ED8; font-weight: 700; }
 .preview-cols  { font-size: 11px; color: #3B82F6; margin-top: 4px; }
+.preview-note  { font-size: 11px; color: #059669; margin-top: 4px; font-weight: 600; }
 textarea { width: 100%; height: 96px; border: 2px dashed #E2E8F0; border-radius: 8px;
   padding: 10px; font-size: 12px; font-family: inherit; resize: none; outline: none; color: #1A202C; }
 textarea:focus { border-color: #1E3A5F; border-style: solid; }
@@ -30,7 +31,6 @@ button { padding: 8px 16px; border-radius: 7px; border: none; cursor: pointer;
 </head>
 <body>
 
-<!-- 붙여넣기 화면 -->
 <div id="sPaste" class="screen on">
   <h2>TC 표 붙여넣기</h2>
   <p class="hint">
@@ -45,12 +45,12 @@ button { padding: 8px 16px; border-radius: 7px; border: none; cursor: pointer;
   </div>
 </div>
 
-<!-- 미리보기 화면 -->
 <div id="sPreview" class="screen">
   <h2>TC 표 붙여넣기</h2>
   <div class="preview">
     <div class="preview-title" id="previewInfo"></div>
     <div class="preview-cols"  id="previewCols"></div>
+    <div class="preview-note"  id="previewNote"></div>
   </div>
   <div class="btns">
     <button class="btn-p" onclick="createTable()">표 만들기</button>
@@ -91,24 +91,52 @@ function parseTSV(raw) {
   return rows.filter(function(r) { return r.some(function(c) { return c !== ''; }); });
 }
 
+function parseInput(raw) {
+  // TC 검토 플러그인 JSON 형식 시도
+  if (raw.charAt(0) === '{') {
+    try {
+      var p = JSON.parse(raw);
+      if (p.tc && Array.isArray(p.headers) && Array.isArray(p.rows)) {
+        return { headers: p.headers, rows: p.rows, issues: p.issues || {}, hasIssues: true };
+      }
+    } catch(e) {}
+  }
+  // 일반 TSV 폴백
+  var rows = parseTSV(raw);
+  if (rows.length < 2) return null;
+  return { headers: rows[0], rows: rows.slice(1), issues: {}, hasIssues: false };
+}
+
 function parseAndPreview() {
   var raw = document.getElementById('pasteArea').value.trim();
   document.getElementById('errMsg').textContent = '';
   if (!raw) { document.getElementById('errMsg').textContent = '데이터를 붙여넣어 주세요.'; return; }
-  var rows = parseTSV(raw);
-  if (rows.length < 2) { document.getElementById('errMsg').textContent = '헤더 + 데이터 행이 필요합니다.'; return; }
-  var headers = rows[0];
-  var data = rows.slice(1);
-  _data = { headers: headers, rows: data };
-  document.getElementById('previewInfo').textContent = headers.length + '열 × ' + data.length + '행 인식됨';
-  var preview = headers.slice(0, 6).join(' · ') + (headers.length > 6 ? ' ···' : '');
-  document.getElementById('previewCols').textContent = '컬럼: ' + preview;
+  var result = parseInput(raw);
+  if (!result || result.rows.length === 0) {
+    document.getElementById('errMsg').textContent = '헤더 + 데이터 행이 필요합니다.'; return;
+  }
+  _data = result;
+  document.getElementById('previewInfo').textContent =
+    result.headers.length + '열 × ' + result.rows.length + '행 인식됨';
+  document.getElementById('previewCols').textContent =
+    '컬럼: ' + result.headers.slice(0, 6).join(' · ') + (result.headers.length > 6 ? ' ···' : '');
+  document.getElementById('previewNote').textContent =
+    result.hasIssues
+      ? '✓ 수정안 적용됨 · 오류/경고 셀 색상 포함'
+      : '';
   show('sPreview');
 }
 
 function createTable() {
   if (!_data) return;
-  parent.postMessage({ pluginMessage: { type: 'create-table', headers: _data.headers, rows: _data.rows } }, '*');
+  parent.postMessage({
+    pluginMessage: {
+      type: 'create-table',
+      headers: _data.headers,
+      rows: _data.rows,
+      issues: _data.issues
+    }
+  }, '*');
 }
 </script>
 </body>
