@@ -862,6 +862,15 @@ function renderTable(headers, data, issueMap) {
       if (dataIssues.length) {
         content += `<span class="data-warn">⚠ 데이터 구체화 필요 — ${esc(dataIssues[0].suggest)}</span>`;
       }
+      // 텍스트 위치 매칭 없이 셀 전체 판단한 이슈(및 중복 등)는 끝에 수정안 추가
+      const extraIssues = issues.filter(i =>
+        i.cat !== '데이터 검증' &&
+        !viols.some(v => v.matched === i.matched)
+      );
+      extraIssues.forEach(iss => {
+        const cls = iss.type === 'error' ? 'ifix' : 'isug';
+        content += `<span class="${cls}">${esc(iss.suggest)}</span>`;
+      });
       html += `<td class="${cls}" title="${esc(tip)}">${content}</td>`;
     });
     html += '</tr>';
