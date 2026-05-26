@@ -484,6 +484,11 @@ function detectFormat(raw) {
   return 'tsv';
 }
 
+/** 모든 종류의 앞뒤 공백 제거 (일반 공백 + \xa0 + 전각공백 등) */
+function trimCell(s) {
+  return s.replace(/^[\s 　﻿]+|[\s 　﻿]+$/g, '');
+}
+
 /** 엑셀 클립보드 TSV 파서 — 셀 내부 줄바꿈(따옴표 처리) 지원, U+3000 빈셀 정규화 */
 function parseTSV(raw) {
   const IDEO = '　';
@@ -497,13 +502,13 @@ function parseTSV(raw) {
       else { cell += ch; }
     } else {
       if      (ch === '"')  { inQ = true; }
-      else if (ch === '\t') { row.push(cell.trim()); cell = ''; }
-      else if (ch === '\r' && raw[i+1] === '\n') { row.push(cell.trim()); rows.push(row); row = []; cell = ''; i++; }
-      else if (ch === '\n') { row.push(cell.trim()); rows.push(row); row = []; cell = ''; }
+      else if (ch === '\t') { row.push(trimCell(cell)); cell = ''; }
+      else if (ch === '\r' && raw[i+1] === '\n') { row.push(trimCell(cell)); rows.push(row); row = []; cell = ''; i++; }
+      else if (ch === '\n') { row.push(trimCell(cell)); rows.push(row); row = []; cell = ''; }
       else { cell += ch; }
     }
   }
-  if (cell || row.length) { row.push(cell.trim()); rows.push(row); }
+  if (cell || row.length) { row.push(trimCell(cell)); rows.push(row); }
   // U+3000(피그마 빈셀 마커)을 빈 문자열로 정규화
   return rows
     .map(r => r.map(c => c === IDEO ? '' : c))
@@ -775,7 +780,7 @@ function runReview() {
   try {
     for (let r = 0; r < data.length; r++) {
       for (let c = 0; c < headers.length; c++) {
-        const cell = (data[r][c] || '').trim();
+        const cell = trimCell(data[r][c] || '');
         if (!cell) continue;
         const issues = getCellIssues(cell, headers[c]);
         if (issues.length) {
@@ -842,7 +847,7 @@ function renderTable(headers, data, issueMap) {
   data.forEach((row, r) => {
     html += `<tr>`;
     headers.forEach((h, c) => {
-      const cell   = (row[c] || '').trim();
+      const cell   = trimCell(row[c] || '');
       const issues = issueMap[`${r}-${c}`] || [];
       const isSkip = !isTargetCol(h);
       const viols  = isSkip ? [] : findViol(cell);
@@ -1017,7 +1022,7 @@ function copyForFigma() {
   // fix 가능한 오류는 수정안으로 치환
   const correctedRows = _tsvData.map((row, r) =>
     _tsvHeaders.map((_, c) => {
-      const cell = (row[c] || '').trim();
+      const cell = trimCell(row[c] || '');
       const viols = findViol(cell);
       const fixable = viols.filter(v => v.rule.fix !== undefined);
       if (!fixable.length) return cell;
@@ -1082,7 +1087,7 @@ function copyForExcel() {
     const rowBg = r % 2 === 0 ? '#FAFBFC' : '#ffffff';
     html += '<tr>';
     _tsvHeaders.forEach((h, c) => {
-      const cell   = (row[c] || '').trim();
+      const cell   = trimCell(row[c] || '');
       const issues = _issueMap[`${r}-${c}`] || [];
       let bg = rowBg;
       if (issues.some(i => i.type === 'error'))        bg = '#FEE2E2';
