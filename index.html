@@ -171,50 +171,6 @@ mark.hw { background: #FCD34D; border-radius: 3px; padding: 0 2px; font-style: n
 .ic-e  { display: inline-block; background: var(--err-bg);  color: var(--err);  padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
 .ic-w  { display: inline-block; background: var(--warn-bg); color: var(--warn); padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
 .ic-ok { color: var(--ok); font-size: 13px; font-weight: 700; }
-
-/* ── 예상결과 고정 컬럼 ── */
-th.th-sticky { position: sticky; z-index: 3; box-shadow: -3px 0 8px rgba(0,0,0,.18); }
-th.th-sticky.th-target { background: #1a4f7e; }
-td.td-sticky { position: sticky; z-index: 1; box-shadow: -3px 0 8px rgba(0,0,0,.10); }
-tbody tr:nth-child(odd)  td.td-sticky { background: #FAFBFC; }
-tbody tr:nth-child(even) td.td-sticky { background: #fff; }
-tbody tr:hover td.td-sticky { background: #EFF6FF !important; }
-td.td-sticky.ce { background: var(--err-bg) !important; }
-td.td-sticky.cw { background: var(--warn-bg) !important; }
-
-/* ── PDF 저장 버튼 ── */
-.btn-save-pdf { background: #FFF7ED; color: #C2410C; border: 1px solid #FED7AA; font-size: 12px; padding: 7px 14px; white-space: nowrap; flex-shrink: 0; }
-.btn-save-pdf:hover { background: #FFEDD5; }
-
-/* ── 인쇄/PDF 전용 스타일 ── */
-@media print {
-  header, section.card:not(#tblSection), #resSection, #histSection,
-  .copy-btns, #copyToast, .plugin-guide, .fmt-banner { display: none !important; }
-
-  body { background: #fff; }
-  main { padding: 4px; gap: 0; max-width: 100%; }
-
-  #tblSection { display: block !important; border: none !important; box-shadow: none !important; padding: 6px 0; }
-  .card-row { margin-bottom: 8px; }
-  .t-hint { display: block !important; font-size: 10px; }
-
-  .twrap { overflow: visible; border: none !important; border-radius: 0; }
-  table { width: 100%; font-size: 10px; page-break-inside: auto; }
-  thead { display: table-header-group; }
-  tr { page-break-inside: avoid; }
-
-  thead th, td.ce, td.cw,
-  tbody tr:nth-child(odd) td, tbody tr:nth-child(even) td {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-
-  /* sticky 해제 */
-  th.th-sticky, td.td-sticky { position: static !important; box-shadow: none !important; right: auto !important; }
-  /* 수정안 태그 숨김 (인쇄 시 불필요) */
-  .ifix, .isug, .data-warn { display: none !important; }
-  mark.he, mark.hw { background: none !important; font-style: normal; }
-}
 </style>
 </head>
 <body>
@@ -234,8 +190,8 @@ td.td-sticky.cw { background: var(--warn-bg) !important; }
   <!-- Step 1 -->
   <section class="card">
     <h2><span class="step">1</span> TC 데이터 붙여넣기</h2>
-    <p class="hint">엑셀 또는 피그마에서 헤더 포함 전체 범위를 복사(⌘C / Ctrl+C) → 아래에 붙여넣기(⌘V / Ctrl+V) → [검토 실행]</p>
-    <textarea id="pasteArea" placeholder="TEST ID	화면번호	화면명	화면구분1	화면구분2	테스트 구분	테스트 시나리오	예상결과	비고&#10;1	1000	관심종목	조회 조건 영역	거래소 선택	조회	통합, KRX, NXT 거래소 변경 시 데이터 확인	통합, KRX, NXT 데이터 정상 노출		..."></textarea>
+    <p class="hint">피그마 또는 엑셀에서 헤더 포함 전체 범위를 복사(⌘C / Ctrl+C) → 아래에 붙여넣기(⌘V / Ctrl+V) → [검토 실행]</p>
+    <textarea id="pasteArea" placeholder="화면명	화면구분	테스트구분	테스트 시나리오	예상결과	비고&#10;MTS	계좌 영역	조회	계좌번호 노출확인	팝업노출	..."></textarea>
     <!-- 포맷 감지 배너 -->
     <div id="fmtBanner" class="fmt-banner">
       <span class="fmt-icon" id="fmtIcon"></span>
@@ -293,7 +249,6 @@ td.td-sticky.cw { background: var(--warn-bg) !important; }
       <div class="copy-btns">
         <button class="btn btn-copy-figma" onclick="copyForFigma()">📐 피그마 복사</button>
         <button class="btn btn-copy-excel" onclick="copyForExcel()">📊 엑셀 복사</button>
-        <button class="btn btn-save-pdf" onclick="savePDF()">📄 PDF 저장</button>
       </div>
     </div>
     <div id="copyToast" class="copy-toast"></div>
@@ -462,16 +417,16 @@ const SIMPLE_RES = [
   { p:/^완료\.?$/,           s:'어떤 처리가 완료되었는지 구체적으로 명시' },
 ];
 
-// 컬럼 구조
+// 피그마 15컬럼 구조
 const FIGMA_COLS = [
-  'TEST ID','화면번호','화면명','화면구분1','화면구분2',
-  '테스트 구분','테스트 시나리오','예상결과','비고'
+  'TEST ID','화면번호','화면명','화면구분',
+  '테스트 구분','테스트 시나리오','예상결과'
 ];
 
 // 검토 제외 컬럼 (숫자 ID / 메타데이터)
-const SKIP_COLS = ['TEST ID','화면번호','1차 통합 테스트','테스트일자','담당자','결과','AS-IS','TO-BE','지라 ID','비고'];
+const SKIP_COLS = ['TEST ID','화면번호','1차 통합 테스트','테스트일자','담당자','결과','AS-IS','TO-BE','지라 ID'];
 // 최소 너비로 표시할 컬럼
-const COMPACT_COLS = ['TEST ID','화면번호','테스트일자','담당자','결과','AS-IS','TO-BE','화면구분1','화면구분2','테스트 구분'];
+const COMPACT_COLS = ['TEST ID','화면번호','테스트일자','담당자','결과','AS-IS','TO-BE'];
 // 예상결과 SIMPLE_RES 체크 대상
 const SIMPLE_RES_COL = '예상결과';
 
@@ -567,10 +522,8 @@ function parseFigmaRow(line) {
     // 탭 구분자 방식
     segments = line.split('\t').map(s => s.trim());
   } else {
-    // 4칸 공백을 셀 구분자로 분리 (빈 셀 보존)
-    segments = line.split('    ').map(s => s.trim());
-    // 후행 빈 세그먼트 제거 (끝부분 trailing 공백만)
-    while (segments.length && segments[segments.length - 1] === '') segments.pop();
+    // 3칸 이상 공백을 구분자로 분리 (공백 압축 전에 먼저 분리)
+    segments = line.split(/   +/).map(s => s.trim()).filter(s => s.length > 0);
   }
 
   const cells = new Array(FIGMA_COLS.length).fill('');
@@ -736,8 +689,7 @@ function runReview() {
   if (!raw) { alert('데이터를 먼저 붙여넣기 해주세요.'); return; }
 
   const fmt = detectFormat(raw);
-  const headers = FIGMA_COLS; // 항상 고정 헤더 사용
-  let data;
+  let headers, data;
 
   if (fmt === 'figma') {
     const result = parseFigma(raw);
@@ -745,18 +697,14 @@ function runReview() {
       alert('피그마 데이터를 파싱할 수 없습니다. 형식을 확인해주세요.');
       return;
     }
+    headers = result.headers;
     data = result.rows;
     showFmtBanner('figma', headers);
   } else {
     const rows = parseTSV(raw);
-    if (rows.length < 1) { alert('데이터를 붙여넣기 해주세요.'); return; }
-    // 첫 줄이 헤더 행이면 자동으로 건너뜀
-    const firstRow = rows[0];
-    const isHeader = firstRow.some(cell =>
-      FIGMA_COLS.some(col => cell.replace(/\s/g,'') === col.replace(/\s/g,''))
-    );
-    data = isHeader ? rows.slice(1) : rows;
-    if (!data.length) { alert('데이터 행이 없습니다.'); return; }
+    if (rows.length < 2) { alert('헤더 + 1개 이상의 데이터 행이 필요합니다.'); return; }
+    headers = rows[0];
+    data = rows.slice(1);
     showFmtBanner('tsv', headers);
   }
 
@@ -822,14 +770,8 @@ function isCompactCol(name) {
 
 function renderTable(headers, data, issueMap) {
   let html = '<table><thead><tr>';
-  const STICKY_COL = '예상결과';
   headers.forEach(h => {
-    const isSticky = h.trim() === STICKY_COL;
-    const classes = [
-      isTargetCol(h) ? 'th-target' : '',
-      isCompactCol(h) ? 'th-compact' : '',
-      isSticky ? 'th-sticky' : ''
-    ].filter(Boolean).join(' ');
+    const classes = [isTargetCol(h) ? 'th-target' : '', isCompactCol(h) ? 'th-compact' : ''].filter(Boolean).join(' ');
     html += `<th${classes ? ` class="${classes}"` : ''}>${esc(h)}</th>`;
   });
   html += '</tr></thead><tbody>';
@@ -841,11 +783,9 @@ function renderTable(headers, data, issueMap) {
       const issues = issueMap[`${r}-${c}`] || [];
       const viols  = findViol(cell);
       const isCompact = isCompactCol(h);
-      const isSticky  = h.trim() === STICKY_COL;
       let cls = isCompact ? 'compact' : '';
       if (issues.some(i => i.type === 'error'))        cls = (isCompact ? 'compact ' : '') + 'ce';
       else if (issues.some(i => i.type === 'warning')) cls = (isCompact ? 'compact ' : '') + 'cw';
-      if (isSticky) cls = (cls ? cls + ' ' : '') + 'td-sticky';
       const tip = issues.map(i => i.msg).join('\n');
 
       let content = buildHtml(cell, viols);
@@ -859,26 +799,6 @@ function renderTable(headers, data, issueMap) {
   });
   html += '</tbody></table>';
   document.getElementById('tblOut').innerHTML = html;
-  applyStickyOffset(STICKY_COL, headers);
-}
-
-function applyStickyOffset(stickyColName, headers) {
-  const stickyIdx = headers.findIndex(h => h.trim() === stickyColName);
-  if (stickyIdx < 0) return;
-  const table = document.querySelector('#tblOut table');
-  if (!table) return;
-  // 오른쪽 컬럼들의 너비 합산
-  requestAnimationFrame(() => {
-    const ths = Array.from(table.querySelectorAll('thead th'));
-    let rightWidth = 0;
-    for (let i = ths.length - 1; i > stickyIdx; i--) {
-      rightWidth += ths[i].offsetWidth;
-    }
-    const px = rightWidth + 'px';
-    table.querySelectorAll('th.th-sticky, td.td-sticky').forEach(el => {
-      el.style.right = px;
-    });
-  });
 }
 
 function renderResults(issues) {
@@ -1129,11 +1049,6 @@ function copyForExcel() {
       showToast('엑셀에서 Cmd+V 하세요 (색상 없이 붙여집니다)');
     }).catch(() => alert('복사 실패 — 브라우저 권한을 확인해주세요.'));
   }
-}
-
-function savePDF() {
-  if (!_tsvHeaders.length) { alert('먼저 검토를 실행한 후 PDF를 저장해주세요.'); return; }
-  window.print();
 }
 
 function saveHistory(raw, errCnt, warnCnt, rowCount) {
