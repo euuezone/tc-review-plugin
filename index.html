@@ -696,7 +696,7 @@ function isCompactCol(name) {
 }
 
 function renderTable(headers, data, issueMap) {
-  let html = '<table><thead><tr><th>#</th>';
+  let html = '<table><thead><tr>';
   headers.forEach(h => {
     const classes = [isTargetCol(h) ? 'th-target' : '', isCompactCol(h) ? 'th-compact' : ''].filter(Boolean).join(' ');
     html += `<th${classes ? ` class="${classes}"` : ''}>${esc(h)}</th>`;
@@ -704,7 +704,7 @@ function renderTable(headers, data, issueMap) {
   html += '</tr></thead><tbody>';
 
   data.forEach((row, r) => {
-    html += `<tr><td class="rn">${r + 2}</td>`;
+    html += `<tr>`;
     headers.forEach((h, c) => {
       const cell   = (row[c] || '').trim();
       const issues = issueMap[`${r}-${c}`] || [];
