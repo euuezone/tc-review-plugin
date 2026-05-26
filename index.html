@@ -1174,8 +1174,22 @@ function clearHistory() {
   renderHistory();
 }
 
-// 초기화
-document.addEventListener('DOMContentLoaded', () => { initRules(); renderHistory(); });
+// 붙여넣기 시 각 줄 앞뒤 공백 자동 정리
+document.addEventListener('DOMContentLoaded', () => {
+  initRules();
+  renderHistory();
+  const ta = document.getElementById('pasteArea');
+  ta.addEventListener('paste', e => {
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData('text');
+    const cleaned = text
+      .split(/\r?\n/)
+      .map(line => line.replace(/^[\s 　﻿]+|[\s 　﻿]+$/g, ''))
+      .join('\n');
+    ta.value = cleaned;
+    clearInputError();
+  });
+});
 </script>
 </body>
 </html>
