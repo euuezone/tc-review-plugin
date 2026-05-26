@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TC 검토 플러그인 v2.0</title>
+<title>TC 검토 플러그인 v2.1</title>
 <style>
 :root {
   --primary: #1E3A5F;
@@ -119,8 +119,11 @@ textarea::placeholder { color: #CBD5E0; }
 .card-row h2 { margin-bottom: 0; }
 .t-hint { font-size: 11px; color: var(--muted); }
 .twrap { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
-.btn-copy { background: #F0FDF4; color: #15803D; border: 1px solid #86EFAC; font-size: 12px; padding: 7px 14px; white-space: nowrap; flex-shrink: 0; }
-.btn-copy:hover { background: #DCFCE7; }
+.copy-btns { display: flex; gap: 6px; flex-shrink: 0; }
+.btn-copy-figma { background: #F5F3FF; color: #6D28D9; border: 1px solid #DDD6FE; font-size: 12px; padding: 7px 14px; white-space: nowrap; flex-shrink: 0; }
+.btn-copy-figma:hover { background: #EDE9FE; }
+.btn-copy-excel { background: #F0FDF4; color: #15803D; border: 1px solid #86EFAC; font-size: 12px; padding: 7px 14px; white-space: nowrap; flex-shrink: 0; }
+.btn-copy-excel:hover { background: #DCFCE7; }
 .copy-toast { display: none; margin: 8px 0 10px; padding: 9px 14px; background: #ECFDF5; border: 1px solid #6EE7B7; border-radius: 8px; font-size: 12px; color: #065F46; font-weight: 600; }
 table { width: 100%; border-collapse: collapse; font-size: 12px; }
 thead th { background: var(--primary); color: #fff; padding: 8px 11px; text-align: left; white-space: nowrap; font-weight: 600; position: sticky; top: 0; z-index: 1; }
@@ -167,7 +170,7 @@ mark.hw { background: #FCD34D; border-radius: 3px; padding: 0 2px; font-style: n
       <h1>TC 검토 플러그인</h1>
       <p>TC 표기 규칙 가이드 기반 자동 검토 도구 · 디지털플랫폼부</p>
     </div>
-    <div class="hdr-ver">v2.0 · 2026.05</div>
+    <div class="hdr-ver">v2.1 · 2026.05</div>
   </div>
 </header>
 
@@ -232,11 +235,12 @@ mark.hw { background: #FCD34D; border-radius: 3px; padding: 0 2px; font-style: n
         <h2 style="margin-bottom:4px"><span class="step">4</span> TC 표</h2>
         <span class="t-hint">빨간 셀: 오류 · 노란 셀: 경고 · 파란 헤더(✓): 검토 대상 컬럼</span>
       </div>
-      <button class="btn btn-copy" id="copyBtn" onclick="copyTSV()">
-        📋 피그마/엑셀 복사
-      </button>
+      <div class="copy-btns">
+        <button class="btn btn-copy-figma" onclick="copyForFigma()">📐 피그마 복사</button>
+        <button class="btn btn-copy-excel" onclick="copyForExcel()">📊 엑셀 복사</button>
+      </div>
     </div>
-    <div id="copyToast" class="copy-toast">클립보드에 복사됐습니다 — 피그마(또는 엑셀)에서 Cmd+V 하세요</div>
+    <div id="copyToast" class="copy-toast"></div>
     <div class="twrap"><div id="tblOut"></div></div>
   </section>
 
@@ -637,6 +641,7 @@ function getCellIssues(text, colName) {
 let ALL_ISSUES = [];
 let _tsvHeaders = [];
 let _tsvData = [];
+let _issueMap = {};
 
 function runReview() {
   const raw = document.getElementById('pasteArea').value.trim();
@@ -665,6 +670,7 @@ function runReview() {
   _tsvHeaders = headers;
   _tsvData = data;
   const issueMap = {};
+  _issueMap = issueMap;
   ALL_ISSUES = [];
 
   for (let r = 0; r < data.length; r++) {
@@ -867,23 +873,85 @@ function getHistory() {
   try { return JSON.parse(localStorage.getItem('tc_history') || '[]'); } catch { return []; }
 }
 
-function copyTSV() {
-  if (!_tsvHeaders.length) return;
-  const esc = v => {
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function buildTSV() {
+  const q = v => {
     const s = (v || '').replace(/"/g, '""');
     return s.includes('\t') || s.includes('\n') || s.includes('"') ? `"${s}"` : s;
   };
-  const lines = [_tsvHeaders.map(esc).join('\t')];
+  const lines = [_tsvHeaders.map(q).join('\t')];
   _tsvData.forEach(row => {
-    lines.push(_tsvHeaders.map((_, i) => esc(row[i] || '')).join('\t'));
+    lines.push(_tsvHeaders.map((_, i) => q(row[i] || '')).join('\t'));
   });
-  navigator.clipboard.writeText(lines.join('\n')).then(() => {
-    const toast = document.getElementById('copyToast');
-    toast.style.display = 'block';
-    setTimeout(() => { toast.style.display = 'none'; }, 3500);
-  }).catch(() => {
-    alert('복사 실패 — 브라우저 권한을 확인해주세요.');
+  return lines.join('\n');
+}
+
+function showToast(msg) {
+  const toast = document.getElementById('copyToast');
+  toast.textContent = msg;
+  toast.style.display = 'block';
+  setTimeout(() => { toast.style.display = 'none'; }, 3500);
+}
+
+/** 피그마 복사 — TSV 형식 (피그마 Table Creator 플러그인에서 표로 붙여넣기) */
+function copyForFigma() {
+  if (!_tsvHeaders.length) return;
+  navigator.clipboard.writeText(buildTSV()).then(() => {
+    showToast('피그마에서 Cmd+V → Table Creator 플러그인으로 표 붙여넣기 하세요');
+  }).catch(() => alert('복사 실패 — 브라우저 권한을 확인해주세요.'));
+}
+
+/** 엑셀 복사 — HTML 표 형식 (오류/경고 색상 포함, TC표 그대로) */
+function copyForExcel() {
+  if (!_tsvHeaders.length) return;
+
+  // HTML 표 생성 (색상 포함)
+  let html = '<table style="border-collapse:collapse;font-family:Apple SD Gothic Neo,Malgun Gothic,sans-serif;font-size:12px"><thead><tr>';
+  _tsvHeaders.forEach(h => {
+    const bg = isTargetCol(h) ? '#1a4f7e' : '#1E3A5F';
+    html += `<th style="background:${bg};color:#fff;padding:8px 11px;font-weight:600;white-space:nowrap;border:1px solid #2D5282;text-align:left;">${escHtml(h)}</th>`;
   });
+  html += '</tr></thead><tbody>';
+
+  _tsvData.forEach((row, r) => {
+    const rowBg = r % 2 === 0 ? '#FAFBFC' : '#ffffff';
+    html += '<tr>';
+    _tsvHeaders.forEach((h, c) => {
+      const cell   = (row[c] || '').trim();
+      const issues = _issueMap[`${r}-${c}`] || [];
+      let bg = rowBg;
+      if (issues.some(i => i.type === 'error'))        bg = '#FEE2E2';
+      else if (issues.some(i => i.type === 'warning')) bg = '#FEF3C7';
+      html += `<td style="background:${bg};padding:7px 11px;border:1px solid #E2E8F0;vertical-align:top;">${escHtml(cell)}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+
+  const tsv = buildTSV();
+
+  // ClipboardItem으로 HTML + 텍스트 동시 복사 (Excel은 HTML 우선 사용)
+  if (typeof ClipboardItem !== 'undefined') {
+    navigator.clipboard.write([
+      new ClipboardItem({
+        'text/html':  new Blob([html], { type: 'text/html'  }),
+        'text/plain': new Blob([tsv],  { type: 'text/plain' })
+      })
+    ]).then(() => {
+      showToast('엑셀에서 Cmd+V — TC표 그대로 색상 포함 붙여집니다');
+    }).catch(() => {
+      navigator.clipboard.writeText(tsv).then(() => {
+        showToast('엑셀에서 Cmd+V 하세요 (색상 없이 붙여집니다)');
+      }).catch(() => alert('복사 실패 — 브라우저 권한을 확인해주세요.'));
+    });
+  } else {
+    navigator.clipboard.writeText(tsv).then(() => {
+      showToast('엑셀에서 Cmd+V 하세요 (색상 없이 붙여집니다)');
+    }).catch(() => alert('복사 실패 — 브라우저 권한을 확인해주세요.'));
+  }
 }
 
 function saveHistory(raw, errCnt, warnCnt, rowCount) {
