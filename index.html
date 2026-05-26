@@ -123,11 +123,13 @@ table { width: 100%; border-collapse: collapse; font-size: 12px; }
 thead th { background: var(--primary); color: #fff; padding: 8px 11px; text-align: left; white-space: nowrap; font-weight: 600; position: sticky; top: 0; z-index: 1; }
 thead th.th-target { background: #1a4f7e; border-bottom: 3px solid #60A5FA; }
 thead th.th-target::after { content: ' ✓'; font-size: 9px; opacity: .7; }
+thead th.th-compact { padding: 8px 6px; }
 tbody tr:nth-child(odd)  td { background: #FAFBFC; }
 tbody tr:nth-child(even) td { background: #fff; }
 tbody tr:hover td { background: #EFF6FF !important; }
 td { padding: 7px 11px; border-bottom: 1px solid var(--border); vertical-align: top; white-space: pre-wrap; word-break: break-word; min-width: 60px; max-width: 260px; }
 td.rn { color: var(--muted); font-size: 10px; text-align: center; min-width: 32px; max-width: 32px; width: 32px; background: #F8FAFC !important; }
+td.compact { white-space: nowrap; width: 1%; min-width: 0; max-width: none; padding: 7px 6px; color: var(--muted); font-size: 11px; }
 td.ce { background: var(--err-bg) !important;  border-left: 3px solid var(--err);  }
 td.cw { background: var(--warn-bg) !important; border-left: 3px solid var(--warn); }
 mark.he { background: #FCA5A5; border-radius: 3px; padding: 0 2px; font-style: normal; }
@@ -381,6 +383,8 @@ const FIGMA_COLS = [
 
 // 검토 제외 컬럼 (숫자 ID / 메타데이터)
 const SKIP_COLS = ['TEST ID','화면번호','1차 통합 테스트','테스트일자','담당자','결과','AS-IS','TO-BE','지라 ID'];
+// 최소 너비로 표시할 컬럼
+const COMPACT_COLS = ['TEST ID','화면번호','테스트일자','담당자','결과','AS-IS','TO-BE'];
 // 예상결과 SIMPLE_RES 체크 대상
 const SIMPLE_RES_COL = '예상결과';
 
@@ -687,11 +691,15 @@ function isTargetCol(name) {
   return !SKIP_COLS.some(s => norm === s.replace(/\s/g,''));
 }
 
+function isCompactCol(name) {
+  return COMPACT_COLS.some(c => c === (name || '').trim());
+}
+
 function renderTable(headers, data, issueMap) {
   let html = '<table><thead><tr><th>#</th>';
   headers.forEach(h => {
-    const targetCls = isTargetCol(h) ? ' class="th-target"' : '';
-    html += `<th${targetCls}>${esc(h)}</th>`;
+    const classes = [isTargetCol(h) ? 'th-target' : '', isCompactCol(h) ? 'th-compact' : ''].filter(Boolean).join(' ');
+    html += `<th${classes ? ` class="${classes}"` : ''}>${esc(h)}</th>`;
   });
   html += '</tr></thead><tbody>';
 
@@ -701,9 +709,10 @@ function renderTable(headers, data, issueMap) {
       const cell   = (row[c] || '').trim();
       const issues = issueMap[`${r}-${c}`] || [];
       const viols  = findViol(cell);
-      let cls = '';
-      if (issues.some(i => i.type === 'error'))        cls = 'ce';
-      else if (issues.some(i => i.type === 'warning')) cls = 'cw';
+      const isCompact = isCompactCol(h);
+      let cls = isCompact ? 'compact' : '';
+      if (issues.some(i => i.type === 'error'))        cls = (isCompact ? 'compact ' : '') + 'ce';
+      else if (issues.some(i => i.type === 'warning')) cls = (isCompact ? 'compact ' : '') + 'cw';
       const tip = issues.map(i => i.msg).join('\n');
 
       let content = buildHtml(cell, viols);
