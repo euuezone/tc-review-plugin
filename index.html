@@ -179,7 +179,8 @@ mark.hw { background: #FCD34D; border-radius: 3px; padding: 0 2px; font-style: n
 /* ── 인쇄/PDF 전용 ── */
 @media print {
   header, section.card:not(#tblSection), #resSection, #histSection,
-  .copy-btns, #copyToast, .plugin-guide, .fmt-banner { display: none !important; }
+  #copyToast, .plugin-guide, .fmt-banner { display: none !important; }
+  .copy-btns { visibility: hidden; }
   body { background: #fff; }
   main { padding: 4px; gap: 0; max-width: 100%; }
   #tblSection { display: block !important; border: none !important; box-shadow: none !important; padding: 6px 0; }
