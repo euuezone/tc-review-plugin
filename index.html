@@ -443,16 +443,16 @@ const SIMPLE_RES = [
   { p:/^완료\.?$/,           s:'어떤 처리가 완료되었는지 구체적으로 명시' },
 ];
 
-// 피그마 15컬럼 구조
+// 컬럼 구조
 const FIGMA_COLS = [
-  'TEST ID','화면번호','화면명','화면구분',
-  '테스트 구분','테스트 시나리오','예상결과'
+  'TEST ID','화면번호','화면명','화면구분1','화면구분2',
+  '테스트 구분','테스트 시나리오','예상결과','비고'
 ];
 
 // 검토 제외 컬럼 (숫자 ID / 메타데이터)
-const SKIP_COLS = ['TEST ID','화면번호','1차 통합 테스트','테스트일자','담당자','결과','AS-IS','TO-BE','지라 ID'];
+const SKIP_COLS = ['TEST ID','화면번호','1차 통합 테스트','테스트일자','담당자','결과','AS-IS','TO-BE','지라 ID','비고'];
 // 최소 너비로 표시할 컬럼
-const COMPACT_COLS = ['TEST ID','화면번호','테스트일자','담당자','결과','AS-IS','TO-BE'];
+const COMPACT_COLS = ['TEST ID','화면번호','테스트일자','담당자','결과','AS-IS','TO-BE','화면구분1','화면구분2','테스트 구분'];
 // 예상결과 SIMPLE_RES 체크 대상
 const SIMPLE_RES_COL = '예상결과';
 
@@ -549,7 +549,9 @@ function parseFigmaRow(line) {
     segments = line.split('\t').map(s => s.trim());
   } else {
     // 3칸 이상 공백을 구분자로 분리 (공백 압축 전에 먼저 분리)
-    segments = line.split(/   +/).map(s => s.trim()).filter(s => s.length > 0);
+    // 4칸 공백을 셀 구분자로 분리 (빈 셀 보존)
+    segments = line.split('    ').map(s => s.trim());
+    while (segments.length && segments[segments.length - 1] === '') segments.pop();
   }
 
   const cells = new Array(FIGMA_COLS.length).fill('');
