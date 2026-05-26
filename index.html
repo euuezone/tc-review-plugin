@@ -185,6 +185,24 @@ mark.hw { background: #FCD34D; border-radius: 3px; padding: 0 2px; font-style: n
 .btn-save-pdf { background: #FFF7ED; color: #C2410C; border: 1px solid #FED7AA; font-size: 12px; padding: 7px 14px; white-space: nowrap; flex-shrink: 0; }
 .btn-save-pdf:hover { background: #FFEDD5; }
 
+/* ── 맞춤법 검사 ── */
+mark.hs { background: #E0E7FF; border-radius: 3px; padding: 0 2px; font-style: normal; }
+td.cs { background: #EEF2FF !important; border-left: 3px solid #818CF8; }
+.ispell { display: inline-block; color: #3730A3; font-size: 10px; font-weight: 700;
+  background: #E0E7FF; border: 1px solid #A5B4FC; padding: 0 5px;
+  border-radius: 3px; margin-left: 3px; vertical-align: middle; white-space: nowrap; }
+.ispell::before { content: '→ '; }
+.btn-spell { background: #EEF2FF; color: #3730A3; border: 1px solid #A5B4FC; font-size: 12px; padding: 7px 14px; white-space: nowrap; flex-shrink: 0; }
+.btn-spell:hover { background: #E0E7FF; }
+.btn-spell:disabled { opacity: .5; cursor: not-allowed; }
+.spell-progress { display: none; margin-top: 8px; padding: 9px 14px; background: #EEF2FF; border: 1px solid #C7D2FE; border-radius: 8px; font-size: 12px; color: #3730A3; font-weight: 600; }
+.spell-progress.show { display: block; }
+.api-setting-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+.api-setting-row input { flex: 1; min-width: 180px; padding: 7px 11px; border: 1px solid var(--border); border-radius: 7px; font-size: 12px; font-family: inherit; outline: none; transition: border-color .2s; }
+.api-setting-row input:focus { border-color: var(--primary); }
+.api-saved { display: none; font-size: 12px; color: var(--ok); font-weight: 600; margin-top: 6px; }
+.api-saved.show { display: block; }
+
 /* ── 인쇄/PDF 전용 ── */
 @media print {
   header, section.card:not(#tblSection), #resSection, #histSection,
@@ -209,8 +227,12 @@ mark.hw { background: #FCD34D; border-radius: 3px; padding: 0 2px; font-style: n
   mark.hw { background: #FCD34D !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .ifix { display: inline-block !important; background: #D1FAE5 !important; color: #065F46 !important; border: 1px solid #6EE7B7 !important; padding: 0 5px !important; border-radius: 3px !important; font-size: 10px !important; font-weight: 700 !important; white-space: nowrap !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .isug { display: inline-block !important; background: #FEF3C7 !important; color: #92400E !important; border: 1px solid #FCD34D !important; padding: 0 5px !important; border-radius: 3px !important; font-size: 10px !important; font-weight: 700 !important; white-space: nowrap !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .ispell { display: inline-block !important; background: #E0E7FF !important; color: #3730A3 !important; border: 1px solid #A5B4FC !important; padding: 0 5px !important; border-radius: 3px !important; font-size: 10px !important; font-weight: 700 !important; white-space: nowrap !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  mark.hs { background: #E0E7FF !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .ifix::before { content: '→ ' !important; }
   .isug::before { content: '→ ' !important; }
+  .ispell::before { content: '→ ' !important; }
+  .spell-progress, .btn-spell, .api-setting-row { display: none !important; }
 }
 </style>
 </head>
@@ -274,6 +296,23 @@ mark.hw { background: #FCD34D; border-radius: 3px; padding: 0 2px; font-style: n
   </section>
 
   <!-- 히스토리 -->
+  <!-- 맞춤법 API 설정 -->
+  <section class="card" id="apiSection">
+    <div class="col-hdr" onclick="toggleSection(this,'apiBody')">
+      <h2 style="margin-bottom:0">⚙ 맞춤법 검사 API 설정</h2>
+      <span class="arr">▶ 펼치기</span>
+    </div>
+    <div class="col-body" id="apiBody" style="display:none">
+      <p class="hint">네이버 클라우드 플랫폼 콘솔 → AI·NAVER API → Korean Language → 이용 신청 후 발급받은 키를 입력하세요. 한 번 저장하면 다음에도 유지됩니다.</p>
+      <div class="api-setting-row">
+        <input type="text" id="ncpClientId" placeholder="Client ID (X-NCP-APIGW-API-KEY-ID)" autocomplete="off">
+        <input type="password" id="ncpClientSecret" placeholder="Client Secret (X-NCP-APIGW-API-KEY)" autocomplete="off">
+        <button class="btn btn-p" onclick="saveApiSettings()">저장</button>
+      </div>
+      <div class="api-saved" id="apiSaved">✓ API 키 저장됨</div>
+    </div>
+  </section>
+
   <section class="card" id="histSection" style="display:none">
     <div class="col-hdr" onclick="toggleSection(this,'histBody')">
       <h2 style="margin-bottom:0">검토 히스토리</h2>
@@ -293,11 +332,13 @@ mark.hw { background: #FCD34D; border-radius: 3px; padding: 0 2px; font-style: n
         <span class="t-hint">빨간 셀: 오류 · 노란 셀: 경고 · 파란 헤더(✓): 검토 대상 컬럼</span>
       </div>
       <div class="copy-btns">
+        <button class="btn btn-spell" id="spellBtn" onclick="runSpellCheck()">🔤 맞춤법 검사</button>
         <button class="btn btn-copy-excel" onclick="downloadExcel()">📥 엑셀 다운로드</button>
         <button class="btn btn-save-pdf" onclick="savePDF()">📄 PDF 저장</button>
       </div>
     </div>
     <div id="copyToast" class="copy-toast"></div>
+    <div id="spellProgress" class="spell-progress"></div>
     <!-- 피그마 플러그인 설치 안내 -->
     <div class="plugin-guide" id="pluginGuide">
       <div class="plugin-guide-hdr" onclick="togglePluginGuide()">
@@ -844,7 +885,10 @@ function isCompactCol(name) {
   return COMPACT_COLS.some(c => c === (name || '').trim());
 }
 
-function renderTable(headers, data, issueMap) {
+let _spellMap = {}; // "r-c" -> [{wrong, suggestion}]
+
+function renderTable(headers, data, issueMap, spellMap) {
+  spellMap = spellMap || _spellMap;
   let html = '<table><thead><tr>';
   headers.forEach(h => {
     const classes = [isTargetCol(h) ? 'th-target' : '', isCompactCol(h) ? 'th-compact' : ''].filter(Boolean).join(' ');
@@ -855,29 +899,39 @@ function renderTable(headers, data, issueMap) {
   data.forEach((row, r) => {
     html += `<tr>`;
     headers.forEach((h, c) => {
-      const cell   = trimCell(row[c] || '');
-      const issues = issueMap[`${r}-${c}`] || [];
-      const isSkip = !isTargetCol(h);
-      const viols  = isSkip ? [] : findViol(cell);
+      const cell      = trimCell(row[c] || '');
+      const issues    = issueMap[`${r}-${c}`] || [];
+      const spells    = spellMap[`${r}-${c}`] || [];
+      const isSkip    = !isTargetCol(h);
+      const viols     = isSkip ? [] : findViol(cell);
       const isCompact = isCompactCol(h);
       let cls = isCompact ? 'compact' : '';
-      if (issues.some(i => i.type === 'error'))        cls = (isCompact ? 'compact ' : '') + 'ce';
+      if      (issues.some(i => i.type === 'error'))   cls = (isCompact ? 'compact ' : '') + 'ce';
       else if (issues.some(i => i.type === 'warning')) cls = (isCompact ? 'compact ' : '') + 'cw';
-      const tip = issues.map(i => i.msg).join('\n');
+      else if (spells.length)                          cls = (isCompact ? 'compact ' : '') + 'cs';
+      const tipParts = issues.map(i => i.msg);
+      if (spells.length) tipParts.push(...spells.map(s => `[맞춤법] "${s.wrong}" → "${s.suggestion}"`));
+      const tip = tipParts.join('\n');
 
       let content = buildHtml(cell, viols);
+      // 텍스트 위치 매칭 없이 셀 전체 판단한 이슈(및 중복 등)
       const dataIssues = issues.filter(i => i.cat === '데이터 검증');
       if (dataIssues.length) {
         content += `<span class="data-warn">⚠ 데이터 구체화 필요 — ${esc(dataIssues[0].suggest)}</span>`;
       }
-      // 텍스트 위치 매칭 없이 셀 전체 판단한 이슈(및 중복 등)는 끝에 수정안 추가
       const extraIssues = issues.filter(i =>
-        i.cat !== '데이터 검증' &&
-        !viols.some(v => v.matched === i.matched)
+        i.cat !== '데이터 검증' && !viols.some(v => v.matched === i.matched)
       );
       extraIssues.forEach(iss => {
-        const cls = iss.type === 'error' ? 'ifix' : 'isug';
-        content += `<span class="${cls}">${esc(iss.suggest)}</span>`;
+        const icls = iss.type === 'error' ? 'ifix' : 'isug';
+        content += `<span class="${icls}">${esc(iss.suggest)}</span>`;
+      });
+      // 맞춤법 오류 인라인 표시
+      spells.forEach(s => {
+        content = content.replace(
+          new RegExp(s.wrong.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'),
+          `<mark class="hs">${esc(s.wrong)}</mark><span class="ispell">${esc(s.suggestion)}</span>`
+        );
       });
       html += `<td class="${cls}" title="${esc(tip)}">${content}</td>`;
     });
@@ -991,8 +1045,10 @@ function clearAll() {
   document.getElementById('tblSection').style.display = 'none';
   document.getElementById('resSection').style.display = 'none';
   document.getElementById('fmtBanner').className = 'fmt-banner';
+  document.getElementById('spellProgress').classList.remove('show');
   clearInputError();
   ALL_ISSUES = [];
+  _spellMap = {};
 }
 
 // ════════════════════════════════════════════
@@ -1109,6 +1165,150 @@ function downloadExcel() {
   showToast('원본 데이터 다운로드 완료 — 엑셀에서 열 수 있습니다');
 }
 
+// ════════════════════════════════════════════
+// 맞춤법 검사 (네이버 클라우드 플랫폼)
+// ════════════════════════════════════════════
+const SPELL_API_URL = 'https://naveropenapi.apigw.ntruss.com/nlp-alpha/v1/spell-checker';
+
+function loadApiSettings() {
+  const id  = localStorage.getItem('ncp_client_id')  || '';
+  const sec = localStorage.getItem('ncp_client_secret') || '';
+  const idEl  = document.getElementById('ncpClientId');
+  const secEl = document.getElementById('ncpClientSecret');
+  if (idEl)  idEl.value  = id;
+  if (secEl) secEl.value = sec;
+  if (id && sec) document.getElementById('apiSaved').classList.add('show');
+}
+
+function saveApiSettings() {
+  const id  = document.getElementById('ncpClientId').value.trim();
+  const sec = document.getElementById('ncpClientSecret').value.trim();
+  if (!id || !sec) { alert('Client ID와 Client Secret을 모두 입력해주세요.'); return; }
+  localStorage.setItem('ncp_client_id',     id);
+  localStorage.setItem('ncp_client_secret', sec);
+  document.getElementById('apiSaved').classList.add('show');
+  showToast('API 키 저장 완료');
+}
+
+async function callSpellAPI(text) {
+  const id  = localStorage.getItem('ncp_client_id')  || '';
+  const sec = localStorage.getItem('ncp_client_secret') || '';
+  const resp = await fetch(SPELL_API_URL, {
+    method:  'POST',
+    headers: {
+      'Content-Type':            'application/json',
+      'X-NCP-APIGW-API-KEY-ID':  id,
+      'X-NCP-APIGW-API-KEY':     sec
+    },
+    body: JSON.stringify({ text })
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw Object.assign(new Error(err.error?.message || `HTTP ${resp.status}`), { status: resp.status });
+  }
+  return resp.json();
+}
+
+function parseSpellErrors(original, data) {
+  const errors = [];
+  const html = data?.result?.html || '';
+  if (!html) return errors;
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  doc.querySelectorAll('[class*="wrong"], [class*="red"]').forEach(el => {
+    const wrong      = el.textContent.trim();
+    const suggestion = (el.getAttribute('help') || el.getAttribute('data-help') || '').trim();
+    if (!wrong || !suggestion || wrong === suggestion) return;
+    let searchFrom = 0;
+    let idx;
+    while ((idx = original.indexOf(wrong, searchFrom)) !== -1) {
+      errors.push({ wrong, suggestion, start: idx, end: idx + wrong.length });
+      searchFrom = idx + 1;
+    }
+  });
+  // 파싱 실패 시 교정본 전체로 폴백
+  if (!errors.length) {
+    const corrected = (data?.result?.notag_html || '').trim();
+    if (corrected && corrected !== original) {
+      errors.push({ wrong: original, suggestion: corrected, start: 0, end: original.length, wholeLine: true });
+    }
+  }
+  return errors;
+}
+
+async function runSpellCheck() {
+  const id  = localStorage.getItem('ncp_client_id')  || '';
+  const sec = localStorage.getItem('ncp_client_secret') || '';
+  if (!id || !sec) {
+    // API 키 없으면 설정 카드 펼치기
+    const body = document.getElementById('apiBody');
+    const hdr  = document.querySelector('#apiSection .col-hdr');
+    if (body.style.display === 'none') { body.style.display = 'block'; if(hdr) hdr.querySelector('.arr').textContent = '▼ 접기'; }
+    document.getElementById('apiSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    showToast('API 키를 먼저 설정해주세요');
+    return;
+  }
+  if (!_tsvHeaders.length) { showToast('먼저 검토를 실행해주세요.'); return; }
+
+  const btn  = document.getElementById('spellBtn');
+  const prog = document.getElementById('spellProgress');
+  btn.disabled = true;
+  prog.classList.add('show');
+
+  // 대상 컬럼 인덱스 수집
+  const targetIdxs = _tsvHeaders.map((h, i) => isTargetCol(h) ? i : -1).filter(i => i >= 0);
+
+  // 중복 제거한 유니크 셀 텍스트 수집 (text -> [{r,c}])
+  const cellMap = {};
+  _tsvData.forEach((row, r) => {
+    targetIdxs.forEach(c => {
+      const cell = trimCell(row[c] || '');
+      if (!cell || cell.length < 2) return;
+      if (!cellMap[cell]) cellMap[cell] = [];
+      cellMap[cell].push({ r, c });
+    });
+  });
+
+  const uniqueTexts = Object.keys(cellMap);
+  const resultCache = {};
+  let done = 0;
+  let stopped = false;
+
+  for (const text of uniqueTexts) {
+    prog.textContent = `맞춤법 검사 중… (${done}/${uniqueTexts.length})`;
+    try {
+      const data   = await callSpellAPI(text);
+      resultCache[text] = parseSpellErrors(text, data);
+    } catch (e) {
+      if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
+        prog.textContent = '⚠ CORS 오류 — NCP 콘솔에서 CORS 허용 설정이 필요합니다 (Access-Control-Allow-Origin: *)';
+        stopped = true; break;
+      }
+      if (e.status === 401 || e.status === 403) {
+        prog.textContent = '⚠ API 인증 오류 — Client ID / Secret을 다시 확인해주세요.';
+        stopped = true; break;
+      }
+      resultCache[text] = []; // 오류 난 셀은 건너뜀
+    }
+    done++;
+    await new Promise(res => setTimeout(res, 220)); // rate limit: ~4 req/s
+  }
+
+  if (!stopped) prog.textContent = `✓ 맞춤법 검사 완료 — ${uniqueTexts.length}개 셀 검사`;
+
+  // spellMap 구성: "r-c" -> errors[]
+  _spellMap = {};
+  Object.entries(resultCache).forEach(([text, errors]) => {
+    if (!errors.length) return;
+    (cellMap[text] || []).forEach(({ r, c }) => {
+      _spellMap[`${r}-${c}`] = errors;
+    });
+  });
+
+  renderTable(_tsvHeaders, _tsvData, _issueMap, _spellMap);
+  btn.disabled = false;
+}
+
 function saveHistory(raw, errCnt, warnCnt, rowCount) {
   try {
     const history = getHistory();
@@ -1170,6 +1370,7 @@ function clearHistory() {
 document.addEventListener('DOMContentLoaded', () => {
   initRules();
   renderHistory();
+  loadApiSettings();
   const ta = document.getElementById('pasteArea');
   ta.addEventListener('paste', e => {
     e.preventDefault();
