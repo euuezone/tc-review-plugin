@@ -443,6 +443,8 @@ function detectFormat(raw) {
   if (ideoCount > 3 && ideoCount >= tabCount) return 'figma';
   if (raw.includes('\t'))  return 'tsv';
   if (raw.includes('　')) return 'figma';
+  // 탭도 U+3000도 없지만 숫자+3칸이상공백+4자리숫자 패턴 → 피그마 공백 구분 포맷
+  if (/^\s*\d+\s{3,}\d{4}/m.test(raw)) return 'figma';
   return 'tsv';
 }
 
@@ -513,7 +515,18 @@ function parseFigma(raw) {
  */
 function parseFigmaRow(line) {
   const IDEO = '　';
-  const segments = line.split(IDEO).map(s => s.trim().replace(/\s+/g, ' '));
+  let segments;
+
+  if (line.includes(IDEO)) {
+    // U+3000 구분자 방식
+    segments = line.split(IDEO).map(s => s.trim().replace(/\s+/g, ' '));
+  } else if (line.includes('\t')) {
+    // 탭 구분자 방식
+    segments = line.split('\t').map(s => s.trim());
+  } else {
+    // 3칸 이상 공백을 구분자로 분리 (공백 압축 전에 먼저 분리)
+    segments = line.split(/   +/).map(s => s.trim()).filter(s => s.length > 0);
+  }
 
   const cells = new Array(15).fill('');
   let colIdx = 0;
