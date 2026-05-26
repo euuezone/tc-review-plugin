@@ -198,8 +198,11 @@ mark.hw { background: #FCD34D; border-radius: 3px; padding: 0 2px; font-style: n
   tbody tr:nth-child(odd) td, tbody tr:nth-child(even) td {
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
-  .ifix, .isug, .data-warn { display: none !important; }
-  mark.he, mark.hw { background: none !important; }
+  .data-warn { display: none !important; }
+  mark.he { background: #FCA5A5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  mark.hw { background: #FCD34D !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .ifix { display: inline-block !important; background: #D1FAE5 !important; color: #065F46 !important; border: 1px solid #6EE7B7 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .isug { display: inline-block !important; background: #FEF3C7 !important; color: #92400E !important; border: 1px solid #FCD34D !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 </style>
 </head>
@@ -838,7 +841,8 @@ function renderTable(headers, data, issueMap) {
     headers.forEach((h, c) => {
       const cell   = (row[c] || '').trim();
       const issues = issueMap[`${r}-${c}`] || [];
-      const viols  = findViol(cell);
+      const isSkip = !isTargetCol(h);
+      const viols  = isSkip ? [] : findViol(cell);
       const isCompact = isCompactCol(h);
       let cls = isCompact ? 'compact' : '';
       if (issues.some(i => i.type === 'error'))        cls = (isCompact ? 'compact ' : '') + 'ce';
