@@ -112,7 +112,12 @@ textarea::placeholder { color: #CBD5E0; }
 .hist-item:hover { background: #EFF6FF; }
 .hist-time { font-size: 11px; color: var(--muted); white-space: nowrap; min-width: 120px; }
 .hist-rows { font-size: 12px; color: var(--text); font-weight: 600; }
+.hist-label { font-size: 12px; font-weight: 700; color: var(--primary); }
 .hist-clear { margin-top: 10px; font-size: 11px; }
+.menu-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.menu-row label { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; }
+.menu-row input { flex: 1; max-width: 320px; padding: 7px 11px; border: 1px solid var(--border); border-radius: 7px; font-size: 12px; font-family: inherit; outline: none; transition: border-color .2s; }
+.menu-row input:focus { border-color: var(--primary); }
 
 /* ── Empty ── */
 .empty { text-align: center; padding: 28px; color: var(--muted); font-size: 13px; }
@@ -227,6 +232,10 @@ mark.hw { background: #FCD34D; border-radius: 3px; padding: 0 2px; font-style: n
   <section class="card">
     <h2><span class="step">1</span> TC 데이터 붙여넣기</h2>
     <p class="hint">피그마 또는 엑셀에서 헤더 포함 전체 범위를 복사(⌘C / Ctrl+C) → 아래에 붙여넣기(⌘V / Ctrl+V) → [검토 실행]</p>
+    <div class="menu-row">
+      <label for="menuName">메뉴명</label>
+      <input type="text" id="menuName" placeholder="예: 해외주식 주문 (선택사항)" maxlength="50">
+    </div>
     <textarea id="pasteArea" placeholder="화면명	화면구분	테스트구분	테스트 시나리오	예상결과	비고&#10;MTS	계좌 영역	조회	계좌번호 노출확인	팝업노출	..."></textarea>
     <div id="inputError" class="input-error"></div>
     <!-- 포맷 감지 배너 -->
@@ -284,7 +293,6 @@ mark.hw { background: #FCD34D; border-radius: 3px; padding: 0 2px; font-style: n
         <span class="t-hint">빨간 셀: 오류 · 노란 셀: 경고 · 파란 헤더(✓): 검토 대상 컬럼</span>
       </div>
       <div class="copy-btns">
-        <button class="btn btn-copy-figma" onclick="copyForFigma()">📐 피그마 복사</button>
         <button class="btn btn-copy-excel" onclick="copyForExcel()">📊 엑셀 복사</button>
         <button class="btn btn-save-pdf" onclick="savePDF()">📄 PDF 저장</button>
       </div>
@@ -979,6 +987,7 @@ function toggleIssues(hdr) {
 
 function clearAll() {
   document.getElementById('pasteArea').value = '';
+  document.getElementById('menuName').value = '';
   document.getElementById('tblSection').style.display = 'none';
   document.getElementById('resSection').style.display = 'none';
   document.getElementById('fmtBanner').className = 'fmt-banner';
@@ -1136,7 +1145,8 @@ function saveHistory(raw, errCnt, warnCnt, rowCount) {
     const now = new Date();
     const pad = n => String(n).padStart(2, '0');
     const time = `${now.getFullYear()}.${pad(now.getMonth()+1)}.${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    history.unshift({ id: Date.now(), time, errCnt, warnCnt, rowCount, raw });
+    const label = (document.getElementById('menuName').value || '').trim();
+    history.unshift({ id: Date.now(), time, label, errCnt, warnCnt, rowCount, raw });
     if (history.length > 20) history.pop();
     localStorage.setItem('tc_history', JSON.stringify(history));
     renderHistory();
@@ -1155,8 +1165,10 @@ function renderHistory() {
     const badges = h.errCnt  ? `<span class="badge b-e">오류 ${h.errCnt}건</span>` : '';
     const wbadge = h.warnCnt ? `<span class="badge b-w">경고 ${h.warnCnt}건</span>` : '';
     const ok     = !h.errCnt && !h.warnCnt ? `<span class="badge b-ok">✓ 이슈 없음</span>` : '';
+    const labelHtml = h.label ? `<span class="hist-label">${esc(h.label)}</span>` : '';
     html += `<div class="hist-item" onclick="restoreHistory(${h.id})" title="클릭하면 해당 검토 복원">
       <span class="hist-time">${h.time}</span>
+      ${labelHtml}
       <span class="hist-rows">${h.rowCount}행</span>
       ${badges}${wbadge}${ok}
     </div>`;
@@ -1168,6 +1180,7 @@ function restoreHistory(id) {
   const item = getHistory().find(h => h.id === id);
   if (!item) return;
   document.getElementById('pasteArea').value = item.raw;
+  document.getElementById('menuName').value = item.label || '';
   runReview();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
