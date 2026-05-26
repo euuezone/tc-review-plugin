@@ -119,11 +119,22 @@ textarea::placeholder { color: #CBD5E0; }
 .card-row h2 { margin-bottom: 0; }
 .t-hint { font-size: 11px; color: var(--muted); }
 .twrap { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
-.copy-btns { display: flex; gap: 6px; flex-shrink: 0; }
+.copy-btns { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
 .btn-copy-figma { background: #F5F3FF; color: #6D28D9; border: 1px solid #DDD6FE; font-size: 12px; padding: 7px 14px; white-space: nowrap; flex-shrink: 0; }
 .btn-copy-figma:hover { background: #EDE9FE; }
 .btn-copy-excel { background: #F0FDF4; color: #15803D; border: 1px solid #86EFAC; font-size: 12px; padding: 7px 14px; white-space: nowrap; flex-shrink: 0; }
 .btn-copy-excel:hover { background: #DCFCE7; }
+
+/* ── 피그마 플러그인 안내 ── */
+.plugin-guide { background: #F5F3FF; border: 1px solid #DDD6FE; border-radius: 8px; padding: 12px 16px; margin-top: 10px; font-size: 12px; display: none; }
+.plugin-guide.open { display: block; }
+.plugin-guide-hdr { display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; }
+.plugin-guide-hdr span { font-weight: 700; color: #6D28D9; }
+.plugin-guide-body { margin-top: 10px; color: #4C1D95; line-height: 1.7; }
+.plugin-guide-body ol { padding-left: 18px; }
+.plugin-guide-body li { margin-bottom: 4px; }
+.plugin-guide-body a { color: #7C3AED; font-weight: 600; }
+.plugin-guide-body code { background: #EDE9FE; padding: 1px 5px; border-radius: 3px; font-size: 11px; }
 .copy-toast { display: none; margin: 8px 0 10px; padding: 9px 14px; background: #ECFDF5; border: 1px solid #6EE7B7; border-radius: 8px; font-size: 12px; color: #065F46; font-weight: 600; }
 table { width: 100%; border-collapse: collapse; font-size: 12px; }
 thead th { background: var(--primary); color: #fff; padding: 8px 11px; text-align: left; white-space: nowrap; font-weight: 600; position: sticky; top: 0; z-index: 1; }
@@ -241,6 +252,25 @@ mark.hw { background: #FCD34D; border-radius: 3px; padding: 0 2px; font-style: n
       </div>
     </div>
     <div id="copyToast" class="copy-toast"></div>
+    <!-- 피그마 플러그인 설치 안내 -->
+    <div class="plugin-guide" id="pluginGuide">
+      <div class="plugin-guide-hdr" onclick="togglePluginGuide()">
+        <span>📐 피그마 플러그인 설치 방법</span>
+        <span id="pluginGuideArr" style="font-size:11px;color:#7C3AED">▼ 접기</span>
+      </div>
+      <div class="plugin-guide-body" id="pluginGuideBody">
+        <ol>
+          <li>아래 링크에서 플러그인 파일 3개 다운로드<br>
+            <a href="https://github.com/euuezone/tc-review-plugin/tree/main/figma-plugin" target="_blank">
+              github.com/euuezone/tc-review-plugin → figma-plugin 폴더
+            </a>
+          </li>
+          <li>피그마 앱 열기 → 상단 메뉴 → <code>Plugins</code> → <code>Development</code> → <code>Import plugin from manifest…</code></li>
+          <li>다운받은 폴더에서 <code>manifest.json</code> 선택</li>
+          <li>이후 <b>📐 피그마 복사</b> → 피그마에서 플러그인 실행 → <b>표 만들기</b></li>
+        </ol>
+      </div>
+    </div>
     <div class="twrap"><div id="tblOut"></div></div>
   </section>
 
@@ -896,12 +926,24 @@ function showToast(msg) {
   setTimeout(() => { toast.style.display = 'none'; }, 3500);
 }
 
-/** 피그마 복사 — TSV 형식 (피그마 Table Creator 플러그인에서 표로 붙여넣기) */
+/** 피그마 복사 — TSV 형식 + 플러그인 안내 표시 */
 function copyForFigma() {
   if (!_tsvHeaders.length) return;
   navigator.clipboard.writeText(buildTSV()).then(() => {
-    showToast('피그마에서 Cmd+V → Table Creator 플러그인으로 표 붙여넣기 하세요');
+    showToast('복사됐습니다 — 피그마에서 TC 표 붙여넣기 플러그인을 실행하세요');
+    // 플러그인 설치 안내 패널 표시
+    const guide = document.getElementById('pluginGuide');
+    guide.classList.add('open');
+    guide.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }).catch(() => alert('복사 실패 — 브라우저 권한을 확인해주세요.'));
+}
+
+function togglePluginGuide() {
+  const body = document.getElementById('pluginGuideBody');
+  const arr  = document.getElementById('pluginGuideArr');
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  arr.textContent = open ? '▶ 펼치기' : '▼ 접기';
 }
 
 /** 엑셀 복사 — HTML 표 형식 (오류/경고 색상 포함, TC표 그대로) */
