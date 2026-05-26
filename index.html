@@ -39,6 +39,10 @@ textarea { width: 100%; height: 130px; padding: 11px 13px; border: 2px dashed va
 textarea:focus { border-color: var(--primary); border-style: solid; }
 textarea::placeholder { color: #CBD5E0; }
 
+/* ── 입력 오류 메시지 ── */
+.input-error { display: none; margin-top: 9px; padding: 9px 14px; background: var(--err-bg); border: 1px solid var(--err-bd); border-radius: 8px; font-size: 12px; font-weight: 600; color: var(--err); }
+.input-error.show { display: block; }
+
 /* ── 포맷 감지 배너 ── */
 .fmt-banner { display: none; align-items: center; gap: 10px; padding: 9px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; margin-top: 10px; }
 .fmt-banner.tsv  { background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; display: flex; }
@@ -218,6 +222,7 @@ mark.hw { background: #FCD34D; border-radius: 3px; padding: 0 2px; font-style: n
     <h2><span class="step">1</span> TC 데이터 붙여넣기</h2>
     <p class="hint">피그마 또는 엑셀에서 헤더 포함 전체 범위를 복사(⌘C / Ctrl+C) → 아래에 붙여넣기(⌘V / Ctrl+V) → [검토 실행]</p>
     <textarea id="pasteArea" placeholder="화면명	화면구분	테스트구분	테스트 시나리오	예상결과	비고&#10;MTS	계좌 영역	조회	계좌번호 노출확인	팝업노출	..."></textarea>
+    <div id="inputError" class="input-error"></div>
     <!-- 포맷 감지 배너 -->
     <div id="fmtBanner" class="fmt-banner">
       <span class="fmt-icon" id="fmtIcon"></span>
@@ -709,9 +714,25 @@ let _tsvHeaders = [];
 let _tsvData = [];
 let _issueMap = {};
 
+function showInputError(msg) {
+  const el = document.getElementById('inputError');
+  el.textContent = msg;
+  el.classList.add('show');
+  document.getElementById('pasteArea').style.borderColor = 'var(--err)';
+  document.getElementById('pasteArea').style.borderStyle = 'solid';
+}
+
+function clearInputError() {
+  const el = document.getElementById('inputError');
+  el.classList.remove('show');
+  document.getElementById('pasteArea').style.borderColor = '';
+  document.getElementById('pasteArea').style.borderStyle = '';
+}
+
 function runReview() {
+  clearInputError();
   const raw = document.getElementById('pasteArea').value.trim();
-  if (!raw) { alert('데이터를 먼저 붙여넣기 해주세요.'); return; }
+  if (!raw) { showInputError('엑셀 또는 피그마에서 데이터를 먼저 복사(⌘C) 후 여기에 붙여넣기(⌘V) 해주세요.'); return; }
 
   const fmt = detectFormat(raw);
   let headers, data;
@@ -719,7 +740,7 @@ function runReview() {
   if (fmt === 'figma') {
     const result = parseFigma(raw);
     if (!result || result.rows.length === 0) {
-      alert('데이터를 인식할 수 없습니다. 형식을 확인해주세요.');
+      showInputError('데이터를 인식할 수 없습니다. 엑셀 또는 피그마에서 헤더 포함 전체 범위를 다시 복사해 붙여넣기 해주세요.');
       return;
     }
     headers = result.headers;
@@ -727,7 +748,7 @@ function runReview() {
     showFmtBanner('figma', headers);
   } else {
     const rows = parseTSV(raw);
-    if (rows.length < 1) { alert('데이터를 붙여넣기 해주세요.'); return; }
+    if (rows.length < 1) { showInputError('데이터가 비어 있습니다. 엑셀에서 헤더 포함 전체 범위를 복사해 붙여넣기 해주세요.'); return; }
     // 첫 행이 헤더(컬럼명)이면 자동 스킵, 아니면 데이터 전체 사용
     const firstRow = rows[0];
     const isHeader = firstRow.some(cell =>
@@ -735,7 +756,7 @@ function runReview() {
     );
     headers = isHeader ? firstRow : FIGMA_COLS;
     data    = isHeader ? rows.slice(1) : rows;
-    if (!data.length) { alert('데이터 행이 없습니다.'); return; }
+    if (!data.length) { showInputError('헤더만 있고 데이터 행이 없습니다. 데이터 행을 포함해서 다시 붙여넣기 해주세요.'); return; }
     showFmtBanner('tsv', headers);
   }
 
@@ -935,6 +956,7 @@ function clearAll() {
   document.getElementById('tblSection').style.display = 'none';
   document.getElementById('resSection').style.display = 'none';
   document.getElementById('fmtBanner').className = 'fmt-banner';
+  clearInputError();
   ALL_ISSUES = [];
 }
 
@@ -1083,14 +1105,18 @@ function copyForExcel() {
 }
 
 function saveHistory(raw, errCnt, warnCnt, rowCount) {
-  const history = getHistory();
-  const now = new Date();
-  const pad = n => String(n).padStart(2, '0');
-  const time = `${now.getFullYear()}.${pad(now.getMonth()+1)}.${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-  history.unshift({ id: Date.now(), time, errCnt, warnCnt, rowCount, raw });
-  if (history.length > 20) history.pop();
-  localStorage.setItem('tc_history', JSON.stringify(history));
-  renderHistory();
+  try {
+    const history = getHistory();
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const time = `${now.getFullYear()}.${pad(now.getMonth()+1)}.${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    history.unshift({ id: Date.now(), time, errCnt, warnCnt, rowCount, raw });
+    if (history.length > 20) history.pop();
+    localStorage.setItem('tc_history', JSON.stringify(history));
+    renderHistory();
+  } catch(e) {
+    // localStorage 용량 초과 등 오류 시 히스토리 저장 건너뜀 (검토 결과 표시에는 영향 없음)
+  }
 }
 
 function renderHistory() {
