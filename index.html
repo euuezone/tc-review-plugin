@@ -513,12 +513,8 @@ function parseFigma(raw) {
   const dataRows = [];
 
   for (const line of lines) {
-    // 헤더 행 스킵: 'TEST ID' 또는 '화면번호' 같은 헤더 키워드 포함
-    if (/TEST\s*ID|화면번호|테스트\s*구분/i.test(line) && !line.match(/^\d/)) continue;
-
-    // 데이터 행: U+3000 포함하거나 숫자로 시작
-    if (!line.includes('　') && !line.match(/^\s*\d/)) continue;
-
+    // 헤더 행 스킵: 컬럼명 키워드 포함 & 숫자로 시작하지 않는 행
+    if (/TEST\s*ID|화면번호|화면명|테스트\s*구분/i.test(line) && !line.match(/^\d/)) continue;
     const parsed = parseFigmaRow(line);
     if (parsed) dataRows.push(parsed);
   }
@@ -722,7 +718,7 @@ function runReview() {
   if (fmt === 'figma') {
     const result = parseFigma(raw);
     if (!result || result.rows.length === 0) {
-      alert('피그마 데이터를 파싱할 수 없습니다. 형식을 확인해주세요.');
+      alert('데이터를 인식할 수 없습니다. 형식을 확인해주세요.');
       return;
     }
     headers = result.headers;
@@ -730,9 +726,15 @@ function runReview() {
     showFmtBanner('figma', headers);
   } else {
     const rows = parseTSV(raw);
-    if (rows.length < 2) { alert('헤더 + 1개 이상의 데이터 행이 필요합니다.'); return; }
-    headers = rows[0];
-    data = rows.slice(1);
+    if (rows.length < 1) { alert('데이터를 붙여넣기 해주세요.'); return; }
+    // 첫 행이 헤더(컬럼명)이면 자동 스킵, 아니면 데이터 전체 사용
+    const firstRow = rows[0];
+    const isHeader = firstRow.some(cell =>
+      FIGMA_COLS.some(col => cell.replace(/\s/g,'') === col.replace(/\s/g,''))
+    );
+    headers = isHeader ? firstRow : FIGMA_COLS;
+    data    = isHeader ? rows.slice(1) : rows;
+    if (!data.length) { alert('데이터 행이 없습니다.'); return; }
     showFmtBanner('tsv', headers);
   }
 
