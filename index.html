@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TC 검토 플러그인 v1.0</title>
+<title>TC 검토 플러그인 v2.0</title>
 <style>
 :root {
   --primary: #1E3A5F;
@@ -38,6 +38,13 @@ main { max-width: 1400px; margin: 0 auto; padding: 20px 24px; display: flex; fle
 textarea { width: 100%; height: 130px; padding: 11px 13px; border: 2px dashed var(--border); border-radius: 8px; font-size: 12px; font-family: inherit; resize: vertical; outline: none; transition: border-color .2s; color: var(--text); }
 textarea:focus { border-color: var(--primary); border-style: solid; }
 textarea::placeholder { color: #CBD5E0; }
+
+/* ── 포맷 감지 배너 ── */
+.fmt-banner { display: none; align-items: center; gap: 10px; padding: 9px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; margin-top: 10px; }
+.fmt-banner.tsv  { background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; display: flex; }
+.fmt-banner.figma { background: #F5F3FF; color: #6D28D9; border: 1px solid #DDD6FE; display: flex; }
+.fmt-banner .fmt-icon { font-size: 16px; }
+.fmt-banner .fmt-cols { margin-top: 4px; font-size: 11px; font-weight: 400; opacity: .8; }
 
 /* ── Buttons ── */
 .btns { display: flex; gap: 8px; margin-top: 11px; }
@@ -89,10 +96,11 @@ textarea::placeholder { color: #CBD5E0; }
 .i-tbadge { font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 3px; }
 .i-tbadge.err { background: #FECACA; color: var(--err); }
 .i-tbadge.wrn { background: #FDE68A; color: var(--warn); }
-.i-diff { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.i-diff { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
 .d-wrong { background: #FECACA; color: #7F1D1D; padding: 3px 10px; border-radius: 5px; font-weight: 600; font-size: 12px; text-decoration: line-through; text-decoration-color: #EF4444; }
 .d-arr   { color: var(--muted); font-size: 15px; font-weight: 300; flex-shrink: 0; }
 .d-right { background: #BBF7D0; color: #064E3B; padding: 3px 10px; border-radius: 5px; font-weight: 600; font-size: 12px; }
+.i-reason { font-size: 11px; color: var(--muted); margin-top: 4px; padding-left: 2px; }
 
 /* ── 히스토리 ── */
 .hist-list { display: flex; flex-direction: column; gap: 6px; }
@@ -113,6 +121,8 @@ textarea::placeholder { color: #CBD5E0; }
 .twrap { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
 table { width: 100%; border-collapse: collapse; font-size: 12px; }
 thead th { background: var(--primary); color: #fff; padding: 8px 11px; text-align: left; white-space: nowrap; font-weight: 600; position: sticky; top: 0; z-index: 1; }
+thead th.th-target { background: #1a4f7e; border-bottom: 3px solid #60A5FA; }
+thead th.th-target::after { content: ' ✓'; font-size: 9px; opacity: .7; }
 tbody tr:nth-child(odd)  td { background: #FAFBFC; }
 tbody tr:nth-child(even) td { background: #fff; }
 tbody tr:hover td { background: #EFF6FF !important; }
@@ -152,7 +162,7 @@ mark.hw { background: #FCD34D; border-radius: 3px; padding: 0 2px; font-style: n
       <h1>TC 검토 플러그인</h1>
       <p>TC 표기 규칙 가이드 기반 자동 검토 도구 · 디지털플랫폼부</p>
     </div>
-    <div class="hdr-ver">v1.0 · 2026.05</div>
+    <div class="hdr-ver">v2.0 · 2026.05</div>
   </div>
 </header>
 
@@ -160,9 +170,17 @@ mark.hw { background: #FCD34D; border-radius: 3px; padding: 0 2px; font-style: n
 
   <!-- Step 1 -->
   <section class="card">
-    <h2><span class="step">1</span> 엑셀 데이터 붙여넣기</h2>
-    <p class="hint">엑셀에서 헤더 포함 전체 범위를 복사(⌘C / Ctrl+C) → 아래에 붙여넣기(⌘V / Ctrl+V) → [검토 실행]</p>
+    <h2><span class="step">1</span> TC 데이터 붙여넣기</h2>
+    <p class="hint">피그마 또는 엑셀에서 헤더 포함 전체 범위를 복사(⌘C / Ctrl+C) → 아래에 붙여넣기(⌘V / Ctrl+V) → [검토 실행]</p>
     <textarea id="pasteArea" placeholder="화면명	화면구분	테스트구분	테스트 시나리오	예상결과	비고&#10;MTS	계좌 영역	조회	계좌번호 노출확인	팝업노출	..."></textarea>
+    <!-- 포맷 감지 배너 -->
+    <div id="fmtBanner" class="fmt-banner">
+      <span class="fmt-icon" id="fmtIcon"></span>
+      <div>
+        <div id="fmtLabel"></div>
+        <div class="fmt-cols" id="fmtCols"></div>
+      </div>
+    </div>
     <div class="btns">
       <button class="btn btn-p" onclick="runReview()">검토 실행</button>
       <button class="btn btn-g" onclick="clearAll()">초기화</button>
@@ -171,7 +189,7 @@ mark.hw { background: #FCD34D; border-radius: 3px; padding: 0 2px; font-style: n
 
   <!-- Step 2 -->
   <section class="card">
-    <div class="col-hdr" onclick="toggleRules(this)">
+    <div class="col-hdr" onclick="toggleSection(this,'rulesBody')">
       <h2 style="margin-bottom:0"><span class="step">2</span> 검토 규칙 목록</h2>
       <span class="arr">▶ 펼쳐보기</span>
     </div>
@@ -206,7 +224,7 @@ mark.hw { background: #FCD34D; border-radius: 3px; padding: 0 2px; font-style: n
   <section class="card" id="tblSection" style="display:none">
     <div class="card-row">
       <h2 style="margin-bottom:0"><span class="step">4</span> TC 표</h2>
-      <span class="t-hint">빨간 셀: 오류 · 노란 셀: 경고 · 마우스 올리면 상세</span>
+      <span class="t-hint">빨간 셀: 오류 · 노란 셀: 경고 · 파란 헤더(✓): 검토 대상 컬럼</span>
     </div>
     <div class="twrap"><div id="tblOut"></div></div>
   </section>
@@ -215,74 +233,80 @@ mark.hw { background: #FCD34D; border-radius: 3px; padding: 0 2px; font-style: n
 
 <script>
 // ════════════════════════════════════════════
-// 규칙 정의
+// 규칙 정의 (RULES)
 // ════════════════════════════════════════════
 const RULES = [
   // ── 띄어쓰기 오류 ──
-  { id:'R01', p:/팝업노출/g,       s:'팝업 노출',  fix:'팝업 노출',  t:'error',   c:'띄어쓰기' },
-  { id:'R02', p:/화면노출/g,       s:'화면 노출',  fix:'화면 노출',  t:'error',   c:'띄어쓰기' },
-  { id:'R03', p:/선택시/g,         s:'선택 시',    fix:'선택 시',    t:'error',   c:'띄어쓰기' },
-  { id:'R04', p:/노출확인/g,       s:'노출 확인',  fix:'노출 확인',  t:'error',   c:'띄어쓰기' },
-  { id:'R05', p:/화면내/g,         s:'화면 내',    fix:'화면 내',    t:'error',   c:'띄어쓰기' },
-  { id:'R06', p:/높은순/g,         s:'높은 순',    fix:'높은 순',    t:'error',   c:'띄어쓰기' },
-  { id:'R07', p:/검색후/g,         s:'검색 후',    fix:'검색 후',    t:'error',   c:'띄어쓰기' },
-  { id:'R08', p:/진입시/g,         s:'진입 시',    fix:'진입 시',    t:'error',   c:'띄어쓰기' },
-  { id:'R09', p:/클릭시/g,         s:'클릭 시',    fix:'클릭 시',    t:'error',   c:'띄어쓰기' },
-  { id:'R10', p:/이동시/g,         s:'이동 시',    fix:'이동 시',    t:'error',   c:'띄어쓰기' },
-  { id:'R11', p:/완료시/g,         s:'완료 시',    fix:'완료 시',    t:'error',   c:'띄어쓰기' },
-  { id:'R12', p:/실패시/g,         s:'실패 시',    fix:'실패 시',    t:'error',   c:'띄어쓰기' },
-  { id:'R13', p:/입력시/g,         s:'입력 시',    fix:'입력 시',    t:'error',   c:'띄어쓰기' },
-  { id:'R14', p:/확인시/g,         s:'확인 시',    fix:'확인 시',    t:'error',   c:'띄어쓰기' },
+  { id:'R01', p:/팝업노출/g,       fix:'팝업 노출',  s:'팝업 노출',         t:'error',   c:'띄어쓰기', reason:'명사 사이 공백 필요' },
+  { id:'R02', p:/화면노출/g,       fix:'화면 노출',  s:'화면 노출',         t:'error',   c:'띄어쓰기', reason:'명사 사이 공백 필요' },
+  { id:'R03', p:/선택시/g,         fix:'선택 시',    s:'선택 시',           t:'error',   c:'띄어쓰기', reason:'의존명사 \'시\' 앞 공백' },
+  { id:'R04', p:/노출확인/g,       fix:'노출 확인',  s:'노출 확인',         t:'error',   c:'띄어쓰기', reason:'명사 사이 공백 필요' },
+  { id:'R05', p:/화면내/g,         fix:'화면 내',    s:'화면 내',           t:'error',   c:'띄어쓰기', reason:'의존명사 \'내\' 앞 공백' },
+  { id:'R06', p:/높은순/g,         fix:'높은 순',    s:'높은 순',           t:'error',   c:'띄어쓰기', reason:'의존명사 \'순\' 앞 공백' },
+  { id:'R07', p:/검색후/g,         fix:'검색 후',    s:'검색 후',           t:'error',   c:'띄어쓰기', reason:'의존명사 \'후\' 앞 공백' },
+  { id:'R08', p:/진입시/g,         fix:'진입 시',    s:'진입 시',           t:'error',   c:'띄어쓰기', reason:'의존명사 \'시\' 앞 공백' },
+  { id:'R09', p:/클릭시/g,         fix:'클릭 시',    s:'클릭 시',           t:'error',   c:'띄어쓰기', reason:'의존명사 \'시\' 앞 공백' },
+  { id:'R10', p:/이동시/g,         fix:'이동 시',    s:'이동 시',           t:'error',   c:'띄어쓰기', reason:'의존명사 \'시\' 앞 공백' },
+  { id:'R11', p:/완료시/g,         fix:'완료 시',    s:'완료 시',           t:'error',   c:'띄어쓰기', reason:'의존명사 \'시\' 앞 공백' },
+  { id:'R12', p:/실패시/g,         fix:'실패 시',    s:'실패 시',           t:'error',   c:'띄어쓰기', reason:'의존명사 \'시\' 앞 공백' },
+  { id:'R13', p:/입력시/g,         fix:'입력 시',    s:'입력 시',           t:'error',   c:'띄어쓰기', reason:'의존명사 \'시\' 앞 공백' },
+  { id:'R14', p:/확인시/g,         fix:'확인 시',    s:'확인 시',           t:'error',   c:'띄어쓰기', reason:'의존명사 \'시\' 앞 공백' },
+  { id:'R14b',p:/처리시/g,         fix:'처리 시',    s:'처리 시',           t:'error',   c:'띄어쓰기', reason:'의존명사 \'시\' 앞 공백' },
+  { id:'R14c',p:/조회시/g,         fix:'조회 시',    s:'조회 시',           t:'error',   c:'띄어쓰기', reason:'의존명사 \'시\' 앞 공백' },
+  { id:'R14d',p:/변경시/g,         fix:'변경 시',    s:'변경 시',           t:'error',   c:'띄어쓰기', reason:'의존명사 \'시\' 앞 공백' },
+  { id:'R14e',p:/취소시/g,         fix:'취소 시',    s:'취소 시',           t:'error',   c:'띄어쓰기', reason:'의존명사 \'시\' 앞 공백' },
   // ── 붙여쓰기 오류 ──
-  { id:'R15', p:/투자성향\s+별/g,  s:'투자성향별', fix:'투자성향별', t:'error',   c:'붙여쓰기' },
-  { id:'R16', p:/화면\s+상(?=[\s,.\n\r]|$)/g, s:'화면상', fix:'화면상', t:'error', c:'붙여쓰기' },
-  { id:'R17', p:/최신\s+순/g,      s:'최신순',     fix:'최신순',     t:'error',   c:'붙여쓰기' },
+  { id:'R15', p:/투자성향\s+별/g,  fix:'투자성향별', s:'투자성향별',        t:'error',   c:'붙여쓰기', reason:'접미사 \'별\' 붙여 씀' },
+  { id:'R16', p:/화면\s+상(?=[\s,.\n\r]|$)/g, fix:'화면상', s:'화면상',    t:'error',   c:'붙여쓰기', reason:'접미사 \'상\' 붙여 씀' },
+  { id:'R17', p:/최신\s+순/g,      fix:'최신순',     s:'최신순',            t:'error',   c:'붙여쓰기', reason:'접미사 \'순\' 붙여 씀' },
   // ── 용어 오류 ──
-  { id:'R18', p:/알럿/g,           s:'Alert',      fix:'Alert',      t:'error',   c:'용어오류' },
-  { id:'R19', p:/\balert\b/g,      s:'Alert',      fix:'Alert',      t:'error',   c:'용어오류' },
-  { id:'R20', p:/드롭\s*다운/g,    s:'Select Box', fix:'Select Box', t:'error',   c:'용어오류' },
-  { id:'R21', p:/드랍다운/g,       s:'Select Box', fix:'Select Box', t:'error',   c:'용어오류' },
-  { id:'R22', p:/\bdefault\b/g,    s:'Default',    fix:'Default',    t:'error',   c:'용어오류' },
-  { id:'R23', p:/디폴트/g,         s:'Default',    fix:'Default',    t:'error',   c:'용어오류' },
+  { id:'R18', p:/알럿/g,           fix:'Alert',      s:'Alert',             t:'error',   c:'용어오류', reason:'공식 용어 Alert 사용 (대문자)' },
+  { id:'R19', p:/\balert\b/gi,     fix:'Alert',      s:'Alert',             t:'error',   c:'용어오류', reason:'대문자 Alert로 표기' },
+  { id:'R20', p:/드롭\s*다운/g,    fix:'Select Box', s:'Select Box',        t:'error',   c:'용어오류', reason:'공식 용어 Select Box 사용' },
+  { id:'R21', p:/드랍다운/g,       fix:'Select Box', s:'Select Box',        t:'error',   c:'용어오류', reason:'공식 용어 Select Box 사용' },
+  { id:'R21b',p:/드롭다운/g,       fix:'Select Box', s:'Select Box',        t:'error',   c:'용어오류', reason:'공식 용어 Select Box 사용' },
+  { id:'R22', p:/\bdefault\b/g,    fix:'Default',    s:'Default',           t:'error',   c:'용어오류', reason:'대문자 Default로 표기' },
+  { id:'R23', p:/디폴트/g,         fix:'Default',    s:'Default',           t:'error',   c:'용어오류', reason:'영문 용어 Default 사용' },
   // ── 용어 검토 ──
-  { id:'R24', p:/레이어\s*팝업/g,  s:'바텀시트 또는 팝업(P) 권장',           t:'warning', c:'용어검토' },
-  { id:'R25', p:/탭\(tap\)/gi,     s:'선택',       fix:'선택',       t:'warning', c:'용어검토' },
+  { id:'R24', p:/레이어\s*팝업/g,  fix:'바텀시트 또는 팝업(P)', s:'바텀시트 또는 팝업(P) 권장', t:'warning', c:'용어검토', reason:'MTS는 바텀시트/팝업(P) 권장' },
+  { id:'R25', p:/탭\(tap\)/gi,     fix:'선택',       s:'선택',              t:'warning', c:'용어검토', reason:'MTS는 \'선택\' 권장' },
   // ── 율/률 오류 ──
-  { id:'R26', p:/과세률/g,         s:'과세율',     fix:'과세율',     t:'error',   c:'율/률' },
-  { id:'R27', p:/할인률/g,         s:'할인율',     fix:'할인율',     t:'error',   c:'율/률' },
-  { id:'R28', p:/전환률/g,         s:'전환율',     fix:'전환율',     t:'error',   c:'율/률' },
-  { id:'R29', p:/적립율/g,         s:'적립률',     fix:'적립률',     t:'error',   c:'율/률' },
-  { id:'R30', p:/환급율/g,         s:'환급률',     fix:'환급률',     t:'error',   c:'율/률' },
-  { id:'R31', p:/수익율/g,         s:'수익률',     fix:'수익률',     t:'error',   c:'율/률' },
+  { id:'R26', p:/과세률/g,         fix:'과세율',     s:'과세율',            t:'error',   c:'율/률',   reason:'모음/ㄴ 뒤에는 \'율\'' },
+  { id:'R27', p:/할인률/g,         fix:'할인율',     s:'할인율',            t:'error',   c:'율/률',   reason:'모음/ㄴ 뒤에는 \'율\'' },
+  { id:'R28', p:/전환률/g,         fix:'전환율',     s:'전환율',            t:'error',   c:'율/률',   reason:'모음/ㄴ 뒤에는 \'율\'' },
+  { id:'R29', p:/적립율/g,         fix:'적립률',     s:'적립률',            t:'error',   c:'율/률',   reason:'받침(ㅂ) 뒤에는 \'률\'' },
+  { id:'R30', p:/환급율/g,         fix:'환급률',     s:'환급률',            t:'error',   c:'율/률',   reason:'받침(ㅂ) 뒤에는 \'률\'' },
+  { id:'R31', p:/수익율/g,         fix:'수익률',     s:'수익률',            t:'error',   c:'율/률',   reason:'받침(ㄱ) 뒤에는 \'률\'' },
   // ── 문장부호 ──
-  { id:'R32', p:/ \/ /g,           s:'/',          fix:'/',          t:'error',   c:'문장부호' },
-  { id:'R33', p:/\^/g,             s:'공백( )으로 수정', fix:' ',    t:'error',   c:'문장부호' },
+  { id:'R32', p:/ \/ /g,           fix:'/',          s:'/',                 t:'error',   c:'문장부호', reason:'빗금 앞뒤 공백 제거' },
+  { id:'R33', p:/\^/g,             fix:' ',          s:'공백( )으로 수정',  t:'error',   c:'문장부호', reason:'공백 표기 기호 → 실제 공백으로' },
   // ── 쌍점 오사용 ──
-  { id:'R34', p:/라디오\s*버튼\s*:/g, s:'라디오 버튼 [항목명] 선택  * [옵션1(Default), 옵션2] 형식으로', t:'warning', c:'쌍점오사용' },
-  { id:'R35', p:/Select\s*Box\s*:/g,  s:'[항목명] Select Box 선택  * [옵션1(Default), 옵션2] 형식으로',  t:'warning', c:'쌍점오사용' },
-  { id:'R39', p:/주식\s*:/g,          s:'주식 적용단위 선택  * 대금(Default), 수량 형식으로',             t:'warning', c:'쌍점오사용' },
+  { id:'R34', p:/라디오\s*버튼\s*:/g, s:'라디오 버튼 [항목명] 선택  * [옵션1(Default), 옵션2] 형식으로', t:'warning', c:'쌍점오사용', reason:'쌍점 대신 서술형으로 작성' },
+  { id:'R35', p:/Select\s*Box\s*:/g,  s:'[항목명] Select Box 선택  * [옵션1(Default), 옵션2] 형식으로', t:'warning', c:'쌍점오사용', reason:'쌍점 대신 서술형으로 작성' },
+  { id:'R39', p:/주식\s*:/g,          s:'주식 적용단위 선택  * 대금(Default), 수량 형식으로',             t:'warning', c:'쌍점오사용', reason:'쌍점 대신 서술형으로 작성' },
   // ── 문체 ──
-  { id:'R36', p:/[가-힣]+며(?=[,\s])/g, s:'"및"으로 연결 권장 (서술형 지양)', t:'warning', c:'문체' },
+  { id:'R36', p:/[가-힣]+며(?=[,\s])/g, s:'"및"으로 연결 권장 (서술형 지양)', t:'warning', c:'문체', reason:'명료한 문장 작성 원칙' },
   // ── 계좌 표기 ──
-  { id:'R37', p:/계좌\s*선택\s*팝업/g,  s:'계좌 선택 바텀시트 (MTS)', fix:'계좌 선택 바텀시트', t:'warning', c:'계좌표기' },
-  { id:'R38', p:/계좌번호\s*노출확인/g,  s:'계좌번호 노출 확인',       fix:'계좌번호 노출 확인', t:'error',   c:'계좌표기' },
+  { id:'R37', p:/계좌\s*선택\s*팝업/g,  fix:'계좌 선택 바텀시트', s:'계좌 선택 바텀시트 (MTS)', t:'warning', c:'계좌표기', reason:'MTS는 바텀시트 사용' },
+  { id:'R38', p:/계좌번호\s*노출확인/g,  fix:'계좌번호 노출 확인', s:'계좌번호 노출 확인',       t:'error',   c:'계좌표기', reason:'띄어쓰기 필요' },
 ];
 
-// 규칙 표시용 데이터 (패널)
+// ── 규칙 패널 UI 데이터 ──
 const RULES_UI = [
   { cat:'띄어쓰기 오류', t:'error',
     items:[['팝업노출','팝업 노출'],['화면노출','화면 노출'],['선택시','선택 시'],
            ['노출확인','노출 확인'],['화면내','화면 내'],['높은순','높은 순'],
            ['검색후','검색 후'],['진입시','진입 시'],['클릭시','클릭 시'],
            ['이동시','이동 시'],['완료시','완료 시'],['실패시','실패 시'],
-           ['입력시','입력 시'],['확인시','확인 시']] },
+           ['입력시','입력 시'],['확인시','확인 시'],['처리시','처리 시'],
+           ['조회시','조회 시'],['변경시','변경 시'],['취소시','취소 시']] },
   { cat:'붙여쓰기 오류', t:'error',
     items:[['투자성향 별','투자성향별'],['화면 상','화면상'],['최신 순','최신순']] },
   { cat:'용어 오류', t:'error',
-    items:[['알럿 / alert','Alert'],['드롭다운 / 드랍다운','Select Box'],
+    items:[['알럿 / alert','Alert'],['드롭다운 / 드롭 다운 / 드랍다운','Select Box'],
            ['default','Default'],['디폴트','Default']] },
   { cat:'용어 검토', t:'warning',
-    items:[['레이어팝업','바텀시트 또는 팝업(P)'],['탭(tap)','선택']] },
+    items:[['레이어팝업 / 레이어 팝업','바텀시트 또는 팝업(P)'],['탭(tap)','선택']] },
   { cat:'율/률 오류', t:'error',
     items:[['과세률','과세율'],['할인률','할인율'],['전환률','전환율'],
            ['적립율','적립률'],['환급율','환급률'],['수익율','수익률']] },
@@ -298,26 +322,19 @@ const RULES_UI = [
     items:[['~며,','서술형 지양 → "및"으로 연결']] },
   { cat:'데이터 검증 (예상결과)', t:'warning',
     items:[
-      ['팝업 노출','팝업 노출되며 계좌 정보 및 신청 내역 데이터 노출'],
+      ['팝업 노출','팝업 노출되며 [내용] 데이터 노출'],
+      ['화면 이동','[화면명] 화면으로 이동하며 [내용] 데이터 노출'],
       ['상품명 노출','상품명, 상품코드, 수익률 등 상품 정보 데이터 노출'],
-      ['화면 이동','상세 화면으로 이동하며 선택한 상품 정보 및 관련 데이터 노출'],
       ['목록 노출 / 리스트 노출','조회 조건에 해당하는 목록 데이터 정상 노출'],
       ['버튼 노출 / 메뉴 노출','해당 버튼/메뉴 노출 및 선택 가능 여부 확인'],
-      ['탭 선택 시 각 탭별 나열 X','Default 탭 데이터 노출 + 각 탭 선택 시 정상 노출 로 통합 작성'],
+      ['처리 완료','[처리 내용] 완료 및 결과 데이터 노출'],
     ] },
-  { cat:'계좌번호 표기 형식 참조', t:'info',
+  { cat:'계좌번호 표기 형식', t:'info',
     items:[
       ['MTS 기본','123-45-678910 [종합계좌] %김신한%'],
       ['MTS 세부계좌','123-45-678910-001 [종합계좌] %김신한%'],
-      ['MTS 연금','123-45-678910-101 [연금저축] %김신한%'],
       ['HTS 기본','123-45-678910 %김신한% [비밀번호]'],
-      ['HTS 세부계좌','123-45-678910 %김신한% [001] [종합계좌]'],
-      ['HTS 연금','123-45-678910 %김신한% [101] [연금저축]'],
       ['홈페이지 기본','123-45-678910 %김신한% [비밀번호]'],
-      ['홈페이지 세부','123-45-678910 %김신한% [001 증권종합] [비밀번호]'],
-      ['홈페이지 연금','123-45-678910 %김신한% [101 연금저축] [비밀번호]'],
-      ['WTS 기본','123-45-678910 %김신한% [비밀번호]'],
-      ['WTS 세부','123-45-678910 %김신한% [001 증권종합] [비밀번호]'],
     ] },
   { cat:'계좌 선택 표기', t:'warning',
     items:[
@@ -326,24 +343,175 @@ const RULES_UI = [
     ] },
 ];
 
-// 예상결과 단순 표현 감지 (데이터 구체화 필요)
+// ── 예상결과 단순 표현 패턴 (data validation) ──
 const SIMPLE_RES = [
-  // 노출 단순 표현
-  /^팝업\s*노출\.?$/, /^화면\s*노출\.?$/, /^정상\s*노출\.?$/,
-  /^노출\s*확인\.?$/, /^노출\.?$/, /^데이터\s*노출\.?$/,
-  // 이동 단순 표현
-  /^화면\s*이동\.?$/, /^이동\.?$/,
-  // 단순 확인 표현
-  /^정상\s*확인\.?$/, /^확인\.?$/, /^데이터\s*확인\.?$/,
-  // 목록/버튼/메뉴 단순 표현
-  /^상품명\s*노출\.?$/, /^목록\s*노출\.?$/, /^리스트\s*노출\.?$/,
-  /^버튼\s*노출\.?$/, /^메뉴\s*노출\.?$/, /^화면\s*표시\.?$/,
-  // 처리 단순 표현
-  /^처리\s*완료\.?$/, /^완료\.?$/, /^처리\.?$/,
+  { p:/^팝업\s*노출\.?$/,   s:'팝업 노출되며 [내용] 및 데이터 노출' },
+  { p:/^화면\s*노출\.?$/,   s:'화면 노출 및 [내용] 데이터 노출' },
+  { p:/^정상\s*노출\.?$/,   s:'[구체적 항목] 데이터 정상 노출' },
+  { p:/^노출\s*확인\.?$/,   s:'어떤 데이터가 노출되는지 구체적으로 명시' },
+  { p:/^노출\.?$/,           s:'어떤 데이터가 노출되는지 구체적으로 명시' },
+  { p:/^데이터\s*노출\.?$/, s:'어떤 데이터가 노출되는지 구체적으로 명시' },
+  { p:/^화면\s*이동\.?$/,   s:'[화면명] 화면으로 이동하며 [내용] 데이터 노출' },
+  { p:/^이동\.?$/,           s:'어느 화면으로 이동하는지, 어떤 데이터가 노출되는지 명시' },
+  { p:/^정상\s*확인\.?$/,   s:'구체적인 검증 항목 명시' },
+  { p:/^확인\.?$/,           s:'무엇을 확인하는지 구체적으로 명시' },
+  { p:/^데이터\s*확인\.?$/, s:'어떤 데이터를 확인하는지 명시' },
+  { p:/^상품명\s*노출\.?$/, s:'상품명, 상품코드, 수익률 등 상품 정보 데이터 노출' },
+  { p:/^목록\s*노출\.?$/,   s:'조회 조건에 해당하는 목록 데이터 정상 노출' },
+  { p:/^리스트\s*노출\.?$/, s:'조회 조건에 해당하는 목록 데이터 정상 노출' },
+  { p:/^버튼\s*노출\.?$/,   s:'해당 버튼 노출 및 선택 가능 여부 확인' },
+  { p:/^메뉴\s*노출\.?$/,   s:'해당 메뉴 노출 및 선택 가능 여부 확인' },
+  { p:/^처리\s*완료\.?$/,   s:'[처리 내용] 완료 및 결과 데이터 노출' },
+  { p:/^완료\.?$/,           s:'어떤 처리가 완료되었는지 구체적으로 명시' },
 ];
 
+// 피그마 15컬럼 구조
+const FIGMA_COLS = [
+  'TEST ID','화면번호','화면명','화면구분',
+  '테스트 구분','테스트 시나리오','예상결과',
+  '1차 통합 테스트','비고','테스트일자',
+  '담당자','결과','AS-IS','TO-BE','지라 ID'
+];
+
+// 검토 대상 컬럼명
+const REVIEW_TARGET_COLS = ['테스트 시나리오', '예상결과'];
+
 // ════════════════════════════════════════════
-// 핵심 엔진
+// 포맷 감지 & 파서
+// ════════════════════════════════════════════
+
+/** TSV 여부 감지: 탭 문자가 있으면 TSV */
+function detectFormat(raw) {
+  if (raw.includes('\t')) return 'tsv';
+  if (raw.includes('　')) return 'figma';
+  return 'tsv'; // fallback
+}
+
+/** 엑셀 클립보드 TSV 파서 — 셀 내부 줄바꿈(따옴표 처리) 지원, U+3000 빈셀 정규화 */
+function parseTSV(raw) {
+  const IDEO = '　';
+  const rows = [];
+  let row = [], cell = '', inQ = false;
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (inQ) {
+      if (ch === '"' && raw[i+1] === '"') { cell += '"'; i++; }
+      else if (ch === '"') { inQ = false; }
+      else { cell += ch; }
+    } else {
+      if      (ch === '"')  { inQ = true; }
+      else if (ch === '\t') { row.push(cell.trim()); cell = ''; }
+      else if (ch === '\r' && raw[i+1] === '\n') { row.push(cell.trim()); rows.push(row); row = []; cell = ''; i++; }
+      else if (ch === '\n') { row.push(cell.trim()); rows.push(row); row = []; cell = ''; }
+      else { cell += ch; }
+    }
+  }
+  if (cell || row.length) { row.push(cell.trim()); rows.push(row); }
+  // U+3000(피그마 빈셀 마커)을 빈 문자열로 정규화
+  return rows
+    .map(r => r.map(c => c === IDEO ? '' : c))
+    .filter(r => r.some(c => c !== ''));
+}
+
+/**
+ * 피그마 파서
+ * 피그마 복붙 특성:
+ * - 빈 셀: U+3000 (이데오그래픽 공백)
+ * - 셀 구분자: U+3000 (빈 셀이 구분자 역할)
+ * - 채워진 셀 사이에는 U+3000 없이 연속 텍스트
+ *
+ * 전략: U+3000을 셀 경계로 사용해 split → 각 세그먼트 = 셀 값
+ */
+function parseFigma(raw) {
+  const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+  const headers = FIGMA_COLS;
+  const dataRows = [];
+
+  for (const line of lines) {
+    // 헤더 행 스킵: 'TEST ID' 또는 '화면번호' 같은 헤더 키워드 포함
+    if (/TEST\s*ID|화면번호|테스트\s*구분/i.test(line) && !line.match(/^\d/)) continue;
+
+    // 데이터 행: U+3000 포함하거나 숫자로 시작
+    if (!line.includes('　') && !line.match(/^\s*\d/)) continue;
+
+    const parsed = parseFigmaRow(line);
+    if (parsed) dataRows.push(parsed);
+  }
+
+  if (dataRows.length === 0) return null;
+  return { headers, rows: dataRows };
+}
+
+/**
+ * 피그마 단일 행 파싱
+ *
+ * 핵심 로직: U+3000을 셀 구분자로 사용해 split.
+ * 각 세그먼트(trim)가 하나의 셀 값. 빈 세그먼트 = 빈 셀.
+ *
+ * 예: "1 　 지수선물 현재가 　 　 ..." → ["1","지수선물 현재가","","",...]
+ * Row 54처럼 앞 컬럼이 U+3000 없이 이어진 경우 첫 세그먼트가 길어지는데,
+ * 이 경우 첫 세그먼트를 추가로 파싱해서 TEST ID / 화면번호 / 나머지로 분리한다.
+ */
+function parseFigmaRow(line) {
+  const IDEO = '　';
+  const segments = line.split(IDEO).map(s => s.trim().replace(/\s+/g, ' '));
+
+  const cells = new Array(15).fill('');
+  let colIdx = 0;
+
+  for (let si = 0; si < segments.length && colIdx < 15; si++) {
+    const seg = segments[si];
+
+    // 첫 번째 세그먼트만 특수 처리: TEST ID / 화면번호 포함 가능
+    if (si === 0 && seg) {
+      const extracted = extractLeadingIds(seg);
+      if (extracted.testId !== null) {
+        cells[0] = extracted.testId;
+        colIdx = 1;
+        if (extracted.screenNo !== null) {
+          cells[1] = extracted.screenNo;
+          colIdx = 2;
+        }
+        if (extracted.rest) {
+          cells[colIdx] = extracted.rest;
+          colIdx++;
+        }
+      } else {
+        cells[colIdx] = seg;
+        colIdx++;
+      }
+    } else {
+      cells[colIdx] = seg;
+      colIdx++;
+    }
+  }
+
+  if (cells.every(c => c === '')) return null;
+  return cells;
+}
+
+/**
+ * 세그먼트 앞쪽에서 TEST ID (숫자), 화면번호 (4자리 숫자) 추출
+ * 반환: { testId, screenNo, rest }
+ */
+function extractLeadingIds(text) {
+  const m = text.match(/^(\d+)\s+(\d{4,})\s*([\s\S]*)$/) ||
+            text.match(/^(\d+)\s+([\s\S]*)$/) ;
+  if (!m) {
+    // 숫자 없음 또는 숫자만 있는 경우
+    if (/^\d+$/.test(text.trim())) return { testId: text.trim(), screenNo: null, rest: '' };
+    return { testId: null, screenNo: null, rest: text };
+  }
+  // 4자리 이상 숫자가 두 번째 그룹인지 확인
+  const full4 = text.match(/^(\d+)\s+(\d{4,})\s*([\s\S]*)$/);
+  if (full4) {
+    return { testId: full4[1], screenNo: full4[2], rest: full4[3].trim() };
+  }
+  return { testId: m[1], screenNo: null, rest: m[2].trim() };
+}
+
+// ════════════════════════════════════════════
+// 검토 엔진
 // ════════════════════════════════════════════
 function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -382,22 +550,12 @@ function buildHtml(text, viols) {
   return html + esc(text.slice(pos));
 }
 
-// 수정안 텍스트 생성 (fix 있는 규칙만 오른쪽→왼쪽 순서로 치환)
-function buildCorrected(text, viols) {
-  const fixable = viols.filter(v => v.rule.fix !== undefined);
-  if (!fixable.length) return null;
-  let result = text;
-  [...fixable].sort((a, b) => b.start - a.start).forEach(v => {
-    result = result.slice(0, v.start) + v.rule.fix + result.slice(v.end);
-  });
-  return result === text ? null : result;
-}
-
-function isResultCol(name) {
-  return name && name.replace(/\s/g, '').includes('예상결과');
-}
-
 function getCellIssues(text, colName) {
+  // 검토 대상 컬럼이 아니면 스킵
+  const normCol = (colName || '').replace(/\s/g,'');
+  const isTarget = REVIEW_TARGET_COLS.some(c => normCol.includes(c.replace(/\s/g,'')));
+  if (!isTarget) return [];
+
   const viols = findViol(text);
   const issues = [];
   const seen = new Set();
@@ -405,17 +563,32 @@ function getCellIssues(text, colName) {
     const key = v.rule.id + ':' + v.matched;
     if (!seen.has(key)) {
       seen.add(key);
-      issues.push({ type: v.rule.t, cat: v.rule.c, matched: v.matched, suggest: v.rule.s,
-        msg: `[${v.rule.c}] "${v.matched}" → "${v.rule.s}"` });
+      issues.push({
+        type: v.rule.t,
+        cat: v.rule.c,
+        matched: v.matched,
+        suggest: v.rule.s,
+        reason: v.rule.reason || '',
+        msg: `[${v.rule.c}] "${v.matched}" → "${v.rule.s}"`
+      });
     }
   }
-  // 예상결과 단순 표현 체크
-  if (colName && colName.replace(/\s/g,'').includes('예상결과')) {
+  // 예상결과 단순 표현 체크 — error가 이미 있으면 스킵
+  const hasError = issues.some(i => i.type === 'error');
+  if (normCol.includes('예상결과') && !hasError) {
     const t = text.trim();
-    if (t && t.length < 25 && SIMPLE_RES.some(p => p.test(t))) {
-      issues.push({ type: 'warning', cat: '데이터 검증', matched: t,
-        suggest: '구체적 데이터 명시',
-        msg: `[데이터 검증] 단순 표현 → 어떤 데이터가 어떻게 노출되는지 구체적으로 작성 필요` });
+    if (t && t.length < 25) {
+      const match = SIMPLE_RES.find(sr => sr.p.test(t));
+      if (match) {
+        issues.push({
+          type: 'warning',
+          cat: '데이터 검증',
+          matched: t,
+          suggest: match.s,
+          reason: '예상결과는 어떤 데이터가 어떻게 노출되는지 구체적으로 작성',
+          msg: `[데이터 검증] 단순 표현 → ${match.s}`
+        });
+      }
     }
   }
   return issues;
@@ -426,44 +599,36 @@ function getCellIssues(text, colName) {
 // ════════════════════════════════════════════
 let ALL_ISSUES = [];
 
-// 엑셀 클립보드 TSV 파서 — 셀 내부 줄바꿈(따옴표 처리) 지원
-function parseTSV(raw) {
-  const rows = [];
-  let row = [], cell = '', inQ = false;
-  for (let i = 0; i < raw.length; i++) {
-    const ch = raw[i];
-    if (inQ) {
-      if (ch === '"' && raw[i+1] === '"') { cell += '"'; i++; }
-      else if (ch === '"') { inQ = false; }
-      else { cell += ch; }
-    } else {
-      if      (ch === '"')  { inQ = true; }
-      else if (ch === '\t') { row.push(cell.trim()); cell = ''; }
-      else if (ch === '\r' && raw[i+1] === '\n') { row.push(cell.trim()); rows.push(row); row = []; cell = ''; i++; }
-      else if (ch === '\n') { row.push(cell.trim()); rows.push(row); row = []; cell = ''; }
-      else { cell += ch; }
-    }
-  }
-  if (cell || row.length) { row.push(cell.trim()); rows.push(row); }
-  return rows.filter(r => r.some(c => c !== ''));
-}
-
 function runReview() {
   const raw = document.getElementById('pasteArea').value.trim();
   if (!raw) { alert('데이터를 먼저 붙여넣기 해주세요.'); return; }
 
-  const rows = parseTSV(raw);
+  const fmt = detectFormat(raw);
+  let headers, data;
 
-  if (rows.length < 2) { alert('헤더 + 1개 이상의 데이터 행이 필요합니다.'); return; }
+  if (fmt === 'figma') {
+    const result = parseFigma(raw);
+    if (!result || result.rows.length === 0) {
+      alert('피그마 데이터를 파싱할 수 없습니다. 형식을 확인해주세요.');
+      return;
+    }
+    headers = result.headers;
+    data = result.rows;
+    showFmtBanner('figma', headers);
+  } else {
+    const rows = parseTSV(raw);
+    if (rows.length < 2) { alert('헤더 + 1개 이상의 데이터 행이 필요합니다.'); return; }
+    headers = rows[0];
+    data = rows.slice(1);
+    showFmtBanner('tsv', headers);
+  }
 
-  const headers = rows[0];
-  const data = rows.slice(1);
   const issueMap = {};
   ALL_ISSUES = [];
 
   for (let r = 0; r < data.length; r++) {
     for (let c = 0; c < headers.length; c++) {
-      const cell = data[r][c] || '';
+      const cell = (data[r][c] || '').trim();
       if (!cell) continue;
       const issues = getCellIssues(cell, headers[c]);
       if (issues.length) {
@@ -485,17 +650,44 @@ function runReview() {
   document.getElementById('tblSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+/** 포맷 감지 배너 표시 */
+function showFmtBanner(fmt, headers) {
+  const banner = document.getElementById('fmtBanner');
+  const icon   = document.getElementById('fmtIcon');
+  const label  = document.getElementById('fmtLabel');
+  const cols   = document.getElementById('fmtCols');
+
+  banner.className = 'fmt-banner ' + fmt;
+  if (fmt === 'tsv') {
+    icon.textContent  = '📋';
+    label.textContent = '엑셀 TSV 형식 감지됨';
+  } else {
+    icon.textContent  = '🎨';
+    label.textContent = '피그마 형식 감지됨';
+  }
+  cols.textContent = '인식된 컬럼: ' + headers.slice(0, 8).join(' · ') + (headers.length > 8 ? ' ···' : '');
+}
+
 // ════════════════════════════════════════════
 // 렌더러
 // ════════════════════════════════════════════
+function isTargetCol(name) {
+  const norm = (name || '').replace(/\s/g,'');
+  return REVIEW_TARGET_COLS.some(t => norm.includes(t.replace(/\s/g,'')));
+}
+
 function renderTable(headers, data, issueMap) {
   let html = '<table><thead><tr><th>#</th>';
-  headers.forEach(h => { html += `<th>${esc(h)}</th>`; });
+  headers.forEach(h => {
+    const targetCls = isTargetCol(h) ? ' class="th-target"' : '';
+    html += `<th${targetCls}>${esc(h)}</th>`;
+  });
   html += '</tr></thead><tbody>';
+
   data.forEach((row, r) => {
     html += `<tr><td class="rn">${r + 2}</td>`;
     headers.forEach((h, c) => {
-      const cell   = row[c] || '';
+      const cell   = (row[c] || '').trim();
       const issues = issueMap[`${r}-${c}`] || [];
       const viols  = findViol(cell);
       let cls = '';
@@ -503,12 +695,10 @@ function renderTable(headers, data, issueMap) {
       else if (issues.some(i => i.type === 'warning')) cls = 'cw';
       const tip = issues.map(i => i.msg).join('\n');
 
-      // 원문 그대로 + RULES 위반 인라인 표시
       let content = buildHtml(cell, viols);
-      // 데이터 검증 경고 (SIMPLE_RES) → 셀 하단 배지
       const dataIssues = issues.filter(i => i.cat === '데이터 검증');
       if (dataIssues.length) {
-        content += `<span class="data-warn">⚠ 데이터 구체화 필요 — 어떤 데이터가 어떻게 노출되는지 명시</span>`;
+        content += `<span class="data-warn">⚠ 데이터 구체화 필요 — ${esc(dataIssues[0].suggest)}</span>`;
       }
       html += `<td class="${cls}" title="${esc(tip)}">${content}</td>`;
     });
@@ -522,7 +712,6 @@ function renderResults(issues) {
   const errs  = issues.filter(i => i.iss.type === 'error').length;
   const warns = issues.filter(i => i.iss.type === 'warning').length;
 
-  // 헤더에 요약 배지만 (항상 보임)
   let sum = '';
   if (!errs && !warns) {
     sum = '<span class="badge b-ok">✓ 이슈 없음</span>';
@@ -532,14 +721,12 @@ function renderResults(issues) {
   }
   document.getElementById('sumRow').innerHTML = sum;
 
-  // 상세 목록 (접힌 상태)
   document.getElementById('ftabs').innerHTML =
     `<button class="ftab on"  onclick="filterIssues('all',this)">전체 (${issues.length})</button>
      <button class="ftab"     onclick="filterIssues('error',this)">오류 (${errs})</button>
      <button class="ftab"     onclick="filterIssues('warning',this)">경고 (${warns})</button>`;
   renderList(issues);
 
-  // 기본 접힘 상태 유지
   document.getElementById('issueBody').classList.remove('open');
 }
 
@@ -551,8 +738,9 @@ function renderList(issues) {
   }
   let html = '';
   issues.forEach(({ row, colName, iss }) => {
-    const label   = iss.type === 'error' ? '오류' : '경고';
+    const label    = iss.type === 'error' ? '오류' : '경고';
     const badgeCls = iss.type === 'error' ? 'err' : 'wrn';
+    const reasonHtml = iss.reason ? `<div class="i-reason">💡 ${esc(iss.reason)}</div>` : '';
     html += `<div class="i-item ${iss.type}">
       <div class="i-head">
         <span class="i-loc">${row}행</span>
@@ -565,6 +753,7 @@ function renderList(issues) {
         <span class="d-arr">→</span>
         <span class="d-right">${esc(iss.suggest)}</span>
       </div>
+      ${reasonHtml}
     </div>`;
   });
   document.getElementById('iList').innerHTML = html;
@@ -594,8 +783,17 @@ function initRules() {
   document.getElementById('rulesBody').innerHTML = html;
 }
 
-function toggleRules(hdr) {
-  const body = hdr.nextElementSibling;
+// ════════════════════════════════════════════
+// 토글 함수들
+// ════════════════════════════════════════════
+function toggleSection(hdr, bodyId) {
+  // bodyId가 문자열이면 직접 사용, 없으면 nextElementSibling
+  let body;
+  if (typeof bodyId === 'string') {
+    body = document.getElementById(bodyId);
+  } else {
+    body = hdr.nextElementSibling;
+  }
   const arr  = hdr.querySelector('.arr');
   const open = body.classList.toggle('open');
   arr.textContent = open ? '▼ 접기' : '▶ 펼쳐보기';
@@ -612,6 +810,7 @@ function clearAll() {
   document.getElementById('pasteArea').value = '';
   document.getElementById('tblSection').style.display = 'none';
   document.getElementById('resSection').style.display = 'none';
+  document.getElementById('fmtBanner').className = 'fmt-banner';
   ALL_ISSUES = [];
 }
 
@@ -664,13 +863,6 @@ function clearHistory() {
   if (!confirm('히스토리를 전부 삭제할까요?')) return;
   localStorage.removeItem('tc_history');
   renderHistory();
-}
-
-function toggleSection(hdr, bodyId) {
-  const body = document.getElementById(bodyId);
-  const arr  = hdr.querySelector('.arr');
-  const open = body.classList.toggle('open');
-  arr.textContent = open ? '▼ 접기' : '▶ 펼쳐보기';
 }
 
 // 초기화

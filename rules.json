@@ -1,0 +1,163 @@
+{
+  "meta": {
+    "version": "1.0",
+    "source": "TC 표기 규칙 가이드 - 디지털플랫폼부",
+    "updated": "2026-04-10",
+    "reviewer": "이성미 PL / 김효주",
+    "description": "TC 시나리오 기준 수립 - 공통 체계 마련"
+  },
+
+  "columnStructure": {
+    "figma": [
+      "TEST ID", "화면번호", "화면명", "화면구분",
+      "테스트 구분", "테스트 시나리오", "예상결과",
+      "1차 통합 테스트", "비고", "테스트일자",
+      "담당자", "결과", "AS-IS", "TO-BE", "지라 ID"
+    ],
+    "excel": [
+      "화면명", "화면구분", "테스트구분",
+      "테스트 시나리오", "예상결과", "비고"
+    ],
+    "reviewTargetCols": ["테스트 시나리오", "예상결과"],
+    "readOnlyCols": ["화면명", "화면구분", "테스트 구분", "테스트구분"]
+  },
+
+  "rules": [
+
+    // ── 띄어쓰기 오류 (명사+의존명사/동사 사이 공백 필요) ──
+    { "id":"R-SP-01","cat":"띄어쓰기","sev":"error","detect":"팝업노출","correct":"팝업 노출","reason":"명사 사이 공백 필요","channel":"공통","example":{"wrong":"팝업노출 확인","right":"팝업 노출 확인"} },
+    { "id":"R-SP-02","cat":"띄어쓰기","sev":"error","detect":"화면노출","correct":"화면 노출","reason":"명사 사이 공백 필요","channel":"공통","example":{"wrong":"화면노출됨","right":"화면 노출됨"} },
+    { "id":"R-SP-03","cat":"띄어쓰기","sev":"error","detect":"선택시","correct":"선택 시","reason":"의존명사 '시' 앞 공백","channel":"공통","example":{"wrong":"선택시 확인","right":"선택 시 확인"} },
+    { "id":"R-SP-04","cat":"띄어쓰기","sev":"error","detect":"노출확인","correct":"노출 확인","reason":"명사 사이 공백 필요","channel":"공통","example":{"wrong":"계좌번호 노출확인","right":"계좌번호 노출 확인"} },
+    { "id":"R-SP-05","cat":"띄어쓰기","sev":"error","detect":"화면내","correct":"화면 내","reason":"의존명사 '내' 앞 공백","channel":"공통","example":{"wrong":"화면내 노출","right":"화면 내 노출"} },
+    { "id":"R-SP-06","cat":"띄어쓰기","sev":"error","detect":"높은순","correct":"높은 순","reason":"의존명사 '순' 앞 공백","channel":"공통","example":{"wrong":"높은순 정렬","right":"높은 순 정렬"} },
+    { "id":"R-SP-07","cat":"띄어쓰기","sev":"error","detect":"검색후","correct":"검색 후","reason":"의존명사 '후' 앞 공백","channel":"공통","example":{"wrong":"검색후 결과","right":"검색 후 결과"} },
+    { "id":"R-SP-08","cat":"띄어쓰기","sev":"error","detect":"진입시","correct":"진입 시","reason":"의존명사 '시' 앞 공백","channel":"공통","example":{"wrong":"화면 진입시","right":"화면 진입 시"} },
+    { "id":"R-SP-09","cat":"띄어쓰기","sev":"error","detect":"클릭시","correct":"클릭 시","reason":"의존명사 '시' 앞 공백","channel":"공통","example":{"wrong":"버튼 클릭시","right":"버튼 클릭 시"} },
+    { "id":"R-SP-10","cat":"띄어쓰기","sev":"error","detect":"이동시","correct":"이동 시","reason":"의존명사 '시' 앞 공백","channel":"공통","example":{"wrong":"화면 이동시","right":"화면 이동 시"} },
+    { "id":"R-SP-11","cat":"띄어쓰기","sev":"error","detect":"완료시","correct":"완료 시","reason":"의존명사 '시' 앞 공백","channel":"공통","example":{"wrong":"처리 완료시","right":"처리 완료 시"} },
+    { "id":"R-SP-12","cat":"띄어쓰기","sev":"error","detect":"실패시","correct":"실패 시","reason":"의존명사 '시' 앞 공백","channel":"공통","example":{"wrong":"로그인 실패시","right":"로그인 실패 시"} },
+    { "id":"R-SP-13","cat":"띄어쓰기","sev":"error","detect":"입력시","correct":"입력 시","reason":"의존명사 '시' 앞 공백","channel":"공통","example":{"wrong":"값 입력시","right":"값 입력 시"} },
+    { "id":"R-SP-14","cat":"띄어쓰기","sev":"error","detect":"확인시","correct":"확인 시","reason":"의존명사 '시' 앞 공백","channel":"공통","example":{"wrong":"버튼 확인시","right":"버튼 확인 시"} },
+    { "id":"R-SP-15","cat":"띄어쓰기","sev":"error","detect":"처리시","correct":"처리 시","reason":"의존명사 '시' 앞 공백","channel":"공통","example":{"wrong":"결제 처리시","right":"결제 처리 시"} },
+    { "id":"R-SP-16","cat":"띄어쓰기","sev":"error","detect":"조회시","correct":"조회 시","reason":"의존명사 '시' 앞 공백","channel":"공통","example":{"wrong":"데이터 조회시","right":"데이터 조회 시"} },
+    { "id":"R-SP-17","cat":"띄어쓰기","sev":"error","detect":"변경시","correct":"변경 시","reason":"의존명사 '시' 앞 공백","channel":"공통","example":{"wrong":"설정 변경시","right":"설정 변경 시"} },
+    { "id":"R-SP-18","cat":"띄어쓰기","sev":"error","detect":"취소시","correct":"취소 시","reason":"의존명사 '시' 앞 공백","channel":"공통","example":{"wrong":"주문 취소시","right":"주문 취소 시"} },
+
+    // ── 붙여쓰기 오류 (접미사는 붙여 씀) ──
+    { "id":"R-NO-01","cat":"붙여쓰기","sev":"error","detect":"투자성향 별","correct":"투자성향별","reason":"접미사 '별' 붙여 씀","channel":"공통","example":{"wrong":"투자성향 별 분류","right":"투자성향별 분류"} },
+    { "id":"R-NO-02","cat":"붙여쓰기","sev":"error","detect":"화면 상","correct":"화면상","reason":"접미사 '상' 붙여 씀","channel":"공통","example":{"wrong":"화면 상 데이터","right":"화면상 데이터"},"regex":"화면\\s+상(?=[\\s,\\.\\n\\r]|$)" },
+    { "id":"R-NO-03","cat":"붙여쓰기","sev":"error","detect":"최신 순","correct":"최신순","reason":"접미사 '순' 붙여 씀","channel":"공통","example":{"wrong":"최신 순 정렬","right":"최신순 정렬"} },
+
+    // ── 용어 오류 (공식 용어 사용) ──
+    { "id":"R-TE-01","cat":"용어오류","sev":"error","detect":"알럿","correct":"Alert","reason":"공식 용어 Alert 사용 (대문자)","channel":"공통","example":{"wrong":"알럿 노출","right":"Alert 노출"} },
+    { "id":"R-TE-02","cat":"용어오류","sev":"error","detect":"\\balert\\b","correct":"Alert","reason":"대문자 Alert로 표기","channel":"공통","regex":true,"example":{"wrong":"alert 노출","right":"Alert 노출"} },
+    { "id":"R-TE-03","cat":"용어오류","sev":"error","detect":"드롭 다운","correct":"Select Box","reason":"공식 용어 Select Box 사용","channel":"공통","example":{"wrong":"드롭 다운 선택","right":"Select Box 선택"} },
+    { "id":"R-TE-04","cat":"용어오류","sev":"error","detect":"드랍다운","correct":"Select Box","reason":"공식 용어 Select Box 사용","channel":"공통","example":{"wrong":"드랍다운 클릭","right":"Select Box 클릭"} },
+    { "id":"R-TE-05","cat":"용어오류","sev":"error","detect":"드롭다운","correct":"Select Box","reason":"공식 용어 Select Box 사용","channel":"공통","example":{"wrong":"드롭다운 열림","right":"Select Box 열림"} },
+    { "id":"R-TE-06","cat":"용어오류","sev":"error","detect":"\\bdefault\\b","correct":"Default","reason":"대문자 Default로 표기","channel":"공통","regex":true,"example":{"wrong":"default 선택","right":"Default 선택"} },
+    { "id":"R-TE-07","cat":"용어오류","sev":"error","detect":"디폴트","correct":"Default","reason":"영문 용어 Default 사용","channel":"공통","example":{"wrong":"디폴트 값","right":"Default 값"} },
+
+    // ── 용어 검토 (권장/경고) ──
+    { "id":"R-TW-01","cat":"용어검토","sev":"warning","detect":"레이어팝업","correct":"바텀시트 또는 팝업(P)","reason":"MTS는 바텀시트/팝업(P) 권장","channel":"MTS","example":{"wrong":"레이어팝업 노출","right":"바텀시트 노출 또는 팝업(P) 노출"} },
+    { "id":"R-TW-02","cat":"용어검토","sev":"warning","detect":"레이어 팝업","correct":"바텀시트 또는 팝업(P)","reason":"MTS는 바텀시트/팝업(P) 권장","channel":"MTS","example":{"wrong":"레이어 팝업 노출","right":"바텀시트 노출"} },
+    { "id":"R-TW-03","cat":"용어검토","sev":"warning","detect":"탭(tap)","correct":"선택","reason":"MTS는 '선택' 권장 (클릭 혼용 가능)","channel":"MTS","regex_flags":"gi","example":{"wrong":"탭(tap) 클릭","right":"선택"} },
+
+    // ── 율/률 오류 (맞춤법) ──
+    { "id":"R-YR-01","cat":"율/률","sev":"error","detect":"과세률","correct":"과세율","reason":"모음/ㄴ 뒤에는 '율'","channel":"공통","example":{"wrong":"과세률 적용","right":"과세율 적용"} },
+    { "id":"R-YR-02","cat":"율/률","sev":"error","detect":"할인률","correct":"할인율","reason":"모음/ㄴ 뒤에는 '율'","channel":"공통","example":{"wrong":"할인률 계산","right":"할인율 계산"} },
+    { "id":"R-YR-03","cat":"율/률","sev":"error","detect":"전환률","correct":"전환율","reason":"모음/ㄴ 뒤에는 '율'","channel":"공통","example":{"wrong":"전환률 노출","right":"전환율 노출"} },
+    { "id":"R-YR-04","cat":"율/률","sev":"error","detect":"적립율","correct":"적립률","reason":"받침(ㅂ) 뒤에는 '률'","channel":"공통","example":{"wrong":"적립율 확인","right":"적립률 확인"} },
+    { "id":"R-YR-05","cat":"율/률","sev":"error","detect":"환급율","correct":"환급률","reason":"받침(ㅂ) 뒤에는 '률'","channel":"공통","example":{"wrong":"환급율 데이터","right":"환급률 데이터"} },
+    { "id":"R-YR-06","cat":"율/률","sev":"error","detect":"수익율","correct":"수익률","reason":"받침(ㄱ) 뒤에는 '률'","channel":"공통","example":{"wrong":"수익율 노출","right":"수익률 노출"} },
+
+    // ── 문장 부호 오류 ──
+    { "id":"R-PU-01","cat":"문장부호","sev":"error","detect":" / ","correct":"/","reason":"빗금 앞뒤 공백 제거","channel":"공통","example":{"wrong":"국내 / 해외","right":"국내/해외"} },
+    { "id":"R-PU-02","cat":"문장부호","sev":"error","detect":"\\^","correct":" ","reason":"공백 표기 기호 → 실제 공백으로","channel":"공통","regex":true,"example":{"wrong":"팝업^노출","right":"팝업 노출"} },
+
+    // ── 쌍점(:) 오사용 ──
+    { "id":"R-CO-01","cat":"쌍점오사용","sev":"warning","detect":"라디오\\s*버튼\\s*:","correct":"라디오 버튼 [항목명] 선택  * [옵션1(Default), 옵션2] 형식으로 작성","reason":"쌍점 대신 서술형으로 작성","channel":"공통","regex":true,"example":{"wrong":"라디오버튼: 일자별(Default), 시간대별 선택","right":"라디오 버튼 일자별 선택  * 일자별(Default), 시간대별"} },
+    { "id":"R-CO-02","cat":"쌍점오사용","sev":"warning","detect":"Select\\s*Box\\s*:","correct":"[항목명] Select Box 선택  * [옵션1(Default), 옵션2] 형식으로 작성","reason":"쌍점 대신 서술형으로 작성","channel":"공통","regex":true,"example":{"wrong":"Select Box: 당일(Default), 전일","right":"시장 종류 Select Box 선택  * 당일(Default), 전일"} },
+    { "id":"R-CO-03","cat":"쌍점오사용","sev":"warning","detect":"주식\\s*:","correct":"주식 적용단위 선택  * 대금(Default), 수량 형식으로 작성","reason":"쌍점 대신 서술형으로 작성","channel":"공통","regex":true,"example":{"wrong":"주식: 대금(Default), 수량 선택","right":"주식 적용단위 선택  * 대금(Default), 수량"} },
+
+    // ── 문체 ──
+    { "id":"R-ST-01","cat":"문체","sev":"warning","detect":"[가-힣]+며(?=[,\\s])","correct":"서술형 지양 → '및'으로 연결 권장","reason":"명료한 문장 작성 원칙","channel":"공통","regex":true,"example":{"wrong":"화면 열리며 데이터 확인","right":"화면 노출 및 데이터 확인"} },
+
+    // ── 계좌 표기 ──
+    { "id":"R-AC-01","cat":"계좌표기","sev":"warning","detect":"계좌 선택 팝업","correct":"계좌 선택 바텀시트","reason":"MTS는 바텀시트 사용","channel":"MTS","example":{"wrong":"계좌 선택 팝업 노출","right":"계좌 선택 바텀시트 노출"} },
+    { "id":"R-AC-02","cat":"계좌표기","sev":"error","detect":"계좌번호\\s*노출확인","correct":"계좌번호 노출 확인","reason":"띄어쓰기 필요","channel":"공통","regex":true,"example":{"wrong":"계좌번호 노출확인","right":"계좌번호 노출 확인"} }
+
+  ],
+
+  "dataValidation": {
+    "description": "예상결과는 '데이터 검증 중심'으로 작성 — 어떤 데이터가 어떻게 노출되는지 구체적으로 명시",
+    "applyToCol": "예상결과",
+    "maxLengthForCheck": 25,
+    "simplePatterns": [
+      { "pattern":"^팝업\\s*노출\\.?$",   "suggestion":"팝업 노출되며 [내용] 및 데이터 노출" },
+      { "pattern":"^화면\\s*노출\\.?$",   "suggestion":"화면 노출 및 [내용] 데이터 노출" },
+      { "pattern":"^정상\\s*노출\\.?$",   "suggestion":"[구체적 항목] 데이터 정상 노출" },
+      { "pattern":"^노출\\s*확인\\.?$",   "suggestion":"어떤 데이터가 노출되는지 구체적으로 명시" },
+      { "pattern":"^노출\\.?$",           "suggestion":"어떤 데이터가 노출되는지 구체적으로 명시" },
+      { "pattern":"^데이터\\s*노출\\.?$", "suggestion":"어떤 데이터가 노출되는지 구체적으로 명시" },
+      { "pattern":"^화면\\s*이동\\.?$",   "suggestion":"[화면명] 화면으로 이동하며 [내용] 데이터 노출" },
+      { "pattern":"^이동\\.?$",           "suggestion":"어느 화면으로 이동하는지, 어떤 데이터가 노출되는지 명시" },
+      { "pattern":"^정상\\s*확인\\.?$",   "suggestion":"구체적인 검증 항목 명시" },
+      { "pattern":"^확인\\.?$",           "suggestion":"무엇을 확인하는지 구체적으로 명시" },
+      { "pattern":"^데이터\\s*확인\\.?$", "suggestion":"어떤 데이터를 확인하는지 명시" },
+      { "pattern":"^상품명\\s*노출\\.?$", "suggestion":"상품명, 상품코드, 수익률 등 상품 정보 데이터 노출" },
+      { "pattern":"^목록\\s*노출\\.?$",   "suggestion":"조회 조건에 해당하는 목록 데이터 정상 노출" },
+      { "pattern":"^리스트\\s*노출\\.?$", "suggestion":"조회 조건에 해당하는 목록 데이터 정상 노출" },
+      { "pattern":"^버튼\\s*노출\\.?$",   "suggestion":"해당 버튼 노출 및 선택 가능 여부 확인" },
+      { "pattern":"^메뉴\\s*노출\\.?$",   "suggestion":"해당 메뉴 노출 및 선택 가능 여부 확인" },
+      { "pattern":"^처리\\s*완료\\.?$",   "suggestion":"[처리 내용] 완료 및 결과 데이터 노출" },
+      { "pattern":"^완료\\.?$",           "suggestion":"어떤 처리가 완료되었는지 구체적으로 명시" }
+    ]
+  },
+
+  "accountFormat": {
+    "description": "계좌번호 표기 형식 참조",
+    "formats": {
+      "MTS": [
+        "123-45-678910 [종합계좌] %김신한%",
+        "123-45-678910-001 [종합계좌] %김신한%",
+        "123-45-678910-101 [연금저축] %김신한%"
+      ],
+      "HTS": [
+        "123-45-678910 %김신한% [비밀번호]",
+        "123-45-678910 %김신한% [001] [비밀번호]",
+        "123-45-678910 %김신한% [001] [종합계좌]",
+        "123-45-678910 %김신한% [101] [연금저축]"
+      ],
+      "홈페이지": [
+        "123-45-678910 %김신한% [비밀번호]",
+        "123-45-678910 %김신한% [001 증권종합] [비밀번호]",
+        "123-45-678910 %김신한% [101 연금저축] [비밀번호]"
+      ],
+      "WTS": [
+        "123-45-678910 %김신한% [비밀번호]",
+        "123-45-678910 %김신한% [001 증권종합] [비밀번호]",
+        "123-45-678910 %김신한% [010 선물옵션] [비밀번호]"
+      ]
+    }
+  },
+
+  "selectBoxFormat": {
+    "description": "Select Box 표현 방식",
+    "withLabel": "[항목명] Select Box 선택  * [옵션1(Default)], [옵션2] (도움말/화면에 항목명 있는 경우)",
+    "withoutLabel": "[Default값] Select Box 선택  * [옵션1(Default)], [옵션2] (항목명 없는 경우)",
+    "note": "항목이 5개 이상이면 '등'으로 생략 가능. 한 파일 내 '* 항목 구성' 문구 통일"
+  },
+
+  "radioButtonFormat": {
+    "description": "라디오 버튼 표현 방식",
+    "withLabel": "라디오 버튼 [항목명] 선택  * [옵션1(Default)], [옵션2]",
+    "splitCase": "선택값별 TC 분리 시 → 각 행에 선택값 추가 작성"
+  },
+
+  "writingStyle": {
+    "avoid": ["서술형 (~며, ~하며)", "불명확한 단순 표현"],
+    "prefer": ["명료하게 떨어지는 문장", "데이터 검증 중심 작성"],
+    "sectionLabel": "화면구분에는 '영역' 표현 사용 (출력부 → 출력 영역, 리스트 영역)"
+  }
+}
