@@ -6,13 +6,14 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
   font-size: 13px; color: #1A202C; background: #fff; padding: 16px; }
-h2 { font-size: 14px; font-weight: 700; color: #1E3A5F; margin-bottom: 8px; }
-.hint { font-size: 11px; color: #718096; margin-bottom: 12px; line-height: 1.6; }
+h2 { font-size: 14px; font-weight: 700; color: #1E3A5F; margin-bottom: 6px; }
+.hint { font-size: 11px; color: #718096; margin-bottom: 12px; line-height: 1.7; }
+.hint b { color: #1E3A5F; }
 .preview { background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px;
   padding: 12px; margin-bottom: 12px; }
 .preview-title { font-size: 13px; color: #1D4ED8; font-weight: 700; }
 .preview-cols  { font-size: 11px; color: #3B82F6; margin-top: 4px; }
-textarea { width: 100%; height: 90px; border: 2px dashed #E2E8F0; border-radius: 8px;
+textarea { width: 100%; height: 96px; border: 2px dashed #E2E8F0; border-radius: 8px;
   padding: 10px; font-size: 12px; font-family: inherit; resize: none; outline: none; color: #1A202C; }
 textarea:focus { border-color: #1E3A5F; border-style: solid; }
 .btns { display: flex; gap: 8px; margin-top: 12px; }
@@ -23,20 +24,29 @@ button { padding: 8px 16px; border-radius: 7px; border: none; cursor: pointer;
 .btn-g { background: #F1F5F9; color: #718096; border: 1px solid #E2E8F0; }
 .btn-g:hover { background: #E2E8F0; }
 .err { color: #DC2626; font-size: 11px; margin-top: 6px; min-height: 16px; }
-section { display: none; }
-section.on { display: block; }
+.screen { display: none; }
+.screen.on { display: block; }
 </style>
 </head>
 <body>
 
-<!-- 로딩 -->
-<section id="sLoading" class="on">
+<!-- 붙여넣기 화면 -->
+<div id="sPaste" class="screen on">
   <h2>TC 표 붙여넣기</h2>
-  <p class="hint">클립보드에서 데이터를 읽는 중…</p>
-</section>
+  <p class="hint">
+    TC 검토 플러그인에서 <b>📐 피그마 복사</b> 클릭 후<br>
+    아래 칸에 붙여넣기(⌘V / Ctrl+V) 하세요
+  </p>
+  <textarea id="pasteArea" placeholder="여기에 붙여넣기…"></textarea>
+  <p class="err" id="errMsg"></p>
+  <div class="btns">
+    <button class="btn-p" onclick="parseAndPreview()">확인</button>
+    <button class="btn-g" onclick="cancel()">취소</button>
+  </div>
+</div>
 
-<!-- 미리보기 -->
-<section id="sPreview">
+<!-- 미리보기 화면 -->
+<div id="sPreview" class="screen">
   <h2>TC 표 붙여넣기</h2>
   <div class="preview">
     <div class="preview-title" id="previewInfo"></div>
@@ -46,25 +56,13 @@ section.on { display: block; }
     <button class="btn-p" onclick="createTable()">표 만들기</button>
     <button class="btn-g" onclick="show('sPaste')">다시 붙여넣기</button>
   </div>
-</section>
-
-<!-- 수동 붙여넣기 -->
-<section id="sPaste">
-  <h2>TC 표 붙여넣기</h2>
-  <p class="hint">TC 검토 플러그인에서 <b>📐 피그마 복사</b> 클릭 후<br>아래 칸에 붙여넣기(⌘V / Ctrl+V) 하세요</p>
-  <textarea id="pasteArea" placeholder="여기에 붙여넣기…"></textarea>
-  <p class="err" id="errMsg"></p>
-  <div class="btns">
-    <button class="btn-p" onclick="parseManual()">확인</button>
-    <button class="btn-g" onclick="cancel()">취소</button>
-  </div>
-</section>
+</div>
 
 <script>
-let _data = null;
+var _data = null;
 
 function show(id) {
-  document.querySelectorAll('section').forEach(s => s.classList.remove('on'));
+  document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('on'); });
   document.getElementById(id).classList.add('on');
 }
 
@@ -73,10 +71,10 @@ function cancel() {
 }
 
 function parseTSV(raw) {
-  const rows = [];
-  let row = [], cell = '', inQ = false;
-  for (let i = 0; i < raw.length; i++) {
-    const ch = raw[i];
+  var rows = [];
+  var row = [], cell = '', inQ = false;
+  for (var i = 0; i < raw.length; i++) {
+    var ch = raw[i];
     if (inQ) {
       if (ch === '"' && raw[i+1] === '"') { cell += '"'; i++; }
       else if (ch === '"') inQ = false;
@@ -90,42 +88,28 @@ function parseTSV(raw) {
     }
   }
   if (cell || row.length) { row.push(cell.trim()); rows.push(row); }
-  return rows.filter(r => r.some(c => c !== ''));
+  return rows.filter(function(r) { return r.some(function(c) { return c !== ''; }); });
 }
 
-function setPreview(headers, rows) {
-  _data = { headers, rows };
-  document.getElementById('previewInfo').textContent = `${headers.length}열 × ${rows.length}행 인식됨`;
-  const preview = headers.slice(0, 6).join(' · ') + (headers.length > 6 ? ' ···' : '');
-  document.getElementById('previewCols').textContent = '컬럼: ' + preview;
-  show('sPreview');
-}
-
-function parseManual() {
-  const raw = document.getElementById('pasteArea').value.trim();
+function parseAndPreview() {
+  var raw = document.getElementById('pasteArea').value.trim();
   document.getElementById('errMsg').textContent = '';
   if (!raw) { document.getElementById('errMsg').textContent = '데이터를 붙여넣어 주세요.'; return; }
-  const rows = parseTSV(raw);
+  var rows = parseTSV(raw);
   if (rows.length < 2) { document.getElementById('errMsg').textContent = '헤더 + 데이터 행이 필요합니다.'; return; }
-  setPreview(rows[0], rows.slice(1));
+  var headers = rows[0];
+  var data = rows.slice(1);
+  _data = { headers: headers, rows: data };
+  document.getElementById('previewInfo').textContent = headers.length + '열 × ' + data.length + '행 인식됨';
+  var preview = headers.slice(0, 6).join(' · ') + (headers.length > 6 ? ' ···' : '');
+  document.getElementById('previewCols').textContent = '컬럼: ' + preview;
+  show('sPreview');
 }
 
 function createTable() {
   if (!_data) return;
   parent.postMessage({ pluginMessage: { type: 'create-table', headers: _data.headers, rows: _data.rows } }, '*');
 }
-
-// 로드 시 클립보드 자동 읽기
-window.onload = async () => {
-  try {
-    const text = await navigator.clipboard.readText();
-    if (text && text.includes('\t')) {
-      const rows = parseTSV(text);
-      if (rows.length >= 2) { setPreview(rows[0], rows.slice(1)); return; }
-    }
-  } catch (e) {}
-  show('sPaste');
-};
 </script>
 </body>
 </html>
