@@ -185,6 +185,26 @@ mark.hw { background: #FCD34D; border-radius: 3px; padding: 0 2px; font-style: n
 .btn-save-pdf { background: #FFF7ED; color: #C2410C; border: 1px solid #FED7AA; font-size: 12px; padding: 7px 14px; white-space: nowrap; flex-shrink: 0; }
 .btn-save-pdf:hover { background: #FFEDD5; }
 
+/* ── AI 시나리오 검토 ── */
+.btn-scenario { background: #F0FDF4; color: #15803D; border: 1px solid #86EFAC; font-size: 12px; padding: 7px 14px; white-space: nowrap; flex-shrink: 0; }
+.btn-scenario:hover { background: #DCFCE7; }
+.btn-scenario:disabled { opacity: .5; cursor: not-allowed; }
+.ai-screen-group { margin-bottom: 18px; }
+.ai-screen-name { font-size: 13px; font-weight: 700; color: var(--primary); padding-bottom: 6px; margin-bottom: 8px; border-bottom: 2px solid var(--border); }
+.ai-issue { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; padding: 10px 13px; border-radius: 8px; margin-bottom: 6px; border: 1px solid; }
+.ai-missing { background: #FEE2E2; border-color: #FECACA; }
+.ai-order   { background: #FEF3C7; border-color: #FDE68A; }
+.ai-wrong   { background: #FEE2E2; border-color: #FECACA; }
+.ai-unclear { background: #F1F5F9; border-color: var(--border); }
+.ai-type-badge { font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 12px; white-space: nowrap; flex-shrink: 0; }
+.ai-missing .ai-type-badge, .ai-wrong .ai-type-badge { background: #FCA5A5; color: #7F1D1D; }
+.ai-order .ai-type-badge   { background: #FCD34D; color: #78350F; }
+.ai-unclear .ai-type-badge { background: #E2E8F0; color: #475569; }
+.ai-row-tag { font-size: 11px; font-weight: 600; color: #64748B; background: #F1F5F9; padding: 2px 7px; border-radius: 4px; white-space: nowrap; flex-shrink: 0; }
+.ai-msg { font-size: 12px; font-weight: 600; flex: 1; min-width: 200px; }
+.ai-suggestion { width: 100%; font-size: 11px; color: #64748B; margin-top: 3px; }
+.ai-ok { color: var(--ok); font-weight: 700; font-size: 13px; padding: 12px 0; }
+
 /* ── 맞춤법 검사 ── */
 mark.hs { background: #E0E7FF; border-radius: 3px; padding: 0 2px; font-style: normal; }
 td.cs { background: #EEF2FF !important; border-left: 3px solid #818CF8; }
@@ -331,7 +351,8 @@ td.cs { background: #EEF2FF !important; border-left: 3px solid #818CF8; }
         <span class="t-hint">빨간 셀: 오류 · 노란 셀: 경고 · 파란 헤더(✓): 검토 대상 컬럼</span>
       </div>
       <div class="copy-btns">
-        <button class="btn btn-spell" id="spellBtn" onclick="runAIReview()">🤖 AI 검토</button>
+        <button class="btn btn-scenario" id="scenarioBtn" onclick="runScenarioReview()">🔍 시나리오 AI 검토</button>
+        <button class="btn btn-spell" id="spellBtn" onclick="runAIReview()">🤖 표기 AI 검토</button>
         <button class="btn btn-copy-excel" onclick="downloadExcel()">📥 엑셀 다운로드</button>
         <button class="btn btn-save-pdf" onclick="savePDF()">📄 PDF 저장</button>
       </div>
@@ -358,6 +379,17 @@ td.cs { background: #EEF2FF !important; border-left: 3px solid #818CF8; }
       </div>
     </div>
     <div class="twrap"><div id="tblOut"></div></div>
+  </section>
+
+  <!-- AI 시나리오 검토 결과 -->
+  <section class="card" id="aiFlowSection" style="display:none">
+    <div class="col-hdr" onclick="toggleSection(this,'aiFlowBody')">
+      <h2 style="margin-bottom:0">🔍 AI 시나리오 검토 결과</h2>
+      <span class="arr">▼ 접기</span>
+    </div>
+    <div class="col-body open" id="aiFlowBody">
+      <div id="aiFlowOut"></div>
+    </div>
   </section>
 
 </main>
@@ -1085,6 +1117,8 @@ function clearAll() {
   document.getElementById('resSection').style.display = 'none';
   document.getElementById('fmtBanner').className = 'fmt-banner';
   document.getElementById('spellProgress').classList.remove('show');
+  document.getElementById('aiFlowSection').style.display = 'none';
+  document.getElementById('aiFlowOut').innerHTML = '';
   clearInputError();
   ALL_ISSUES = [];
   _spellMap = {};
@@ -1322,6 +1356,143 @@ async function callOpenAIBatch(texts) {
   }
   const data = await resp.json();
   return JSON.parse(data.choices?.[0]?.message?.content || '{"results":[]}');
+}
+
+// ════════════════════════════════════════════
+// AI 시나리오 흐름 검토 (누락·순서·논리 오류)
+// ════════════════════════════════════════════
+const SCENARIO_PROMPT = `당신은 모바일 금융 앱(MTS) QA 전문가입니다.
+아래 TC(테스트케이스) 시나리오를 실제 테스터가 앱을 직접 클릭하며 검증한다는 관점으로 검토해주세요.
+
+[검토 기준]
+1. 누락: 이 화면/기능을 완전히 테스트하기 위해 반드시 있어야 할 케이스가 빠졌는가?
+   - 화면 최초 진입 및 초기 상태 확인 케이스
+   - 정상(Happy path) / 예외(오류·미입력·권한 없음 등) 케이스
+   - 분기 조건(A일 때 / B일 때)별 케이스
+2. 순서: 시나리오 순서가 실제 앱 사용 흐름과 맞는가?
+   - 일반 순서: 화면 진입 → UI 확인 → 조회 → 처리
+   - 선행 조건이 필요한 케이스가 선행 케이스 이후에 위치하는가
+3. 잘못됨: 시나리오 내용이나 예상결과가 틀리거나 서로 모순되는 경우
+4. 불명확: 어떤 상태에서 어떤 동작을 하는지 알 수 없어 테스트 기준이 불분명한 경우
+
+이슈가 있는 경우만 JSON으로 반환하세요:
+{"issues":[{"type":"누락|순서|잘못됨|불명확","rows":["행N","행M"],"message":"구체적 설명","suggestion":"개선안"}]}
+이슈 없으면: {"issues":[]}`;
+
+async function callOpenAIScenario(screenName, rowsText) {
+  const key  = localStorage.getItem('openai_api_key') || '';
+  const resp = await fetch(OPENAI_API_URL, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      temperature: 0,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: SCENARIO_PROMPT },
+        { role: 'user',   content: `화면명: ${screenName}\n\nTC 목록:\n${rowsText}` }
+      ]
+    })
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw Object.assign(new Error(err.error?.message || `HTTP ${resp.status}`), { status: resp.status });
+  }
+  const data = await resp.json();
+  return JSON.parse(data.choices?.[0]?.message?.content || '{"issues":[]}');
+}
+
+function renderScenarioResults(allIssues) {
+  const section = document.getElementById('aiFlowSection');
+  const out     = document.getElementById('aiFlowOut');
+  const screens = Object.keys(allIssues);
+
+  if (!screens.length) {
+    out.innerHTML = '<p class="ai-ok">✓ 시나리오 검토 결과 특이사항 없음</p>';
+    section.style.display = 'block';
+    return;
+  }
+  let html = '';
+  screens.forEach(screen => {
+    const issues = allIssues[screen];
+    html += `<div class="ai-screen-group"><div class="ai-screen-name">${esc(screen)}</div>`;
+    issues.forEach(iss => {
+      const t   = iss.type || '기타';
+      const cls = t === '누락' ? 'ai-missing' : t === '순서' ? 'ai-order' : t === '잘못됨' ? 'ai-wrong' : 'ai-unclear';
+      const rowTag = (iss.rows||[]).length ? `<span class="ai-row-tag">${iss.rows.join(', ')}</span>` : '';
+      html += `<div class="ai-issue ${cls}">
+        <span class="ai-type-badge">${esc(t)}</span>${rowTag}
+        <span class="ai-msg">${esc(iss.message||'')}</span>
+        ${iss.suggestion ? `<div class="ai-suggestion">💡 ${esc(iss.suggestion)}</div>` : ''}
+      </div>`;
+    });
+    html += '</div>';
+  });
+  out.innerHTML = html;
+  section.style.display = 'block';
+  section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function runScenarioReview() {
+  const key = localStorage.getItem('openai_api_key') || '';
+  if (!key) {
+    const body = document.getElementById('apiBody');
+    const hdr  = document.querySelector('#apiSection .col-hdr');
+    if (body.style.display === 'none') { body.style.display='block'; if(hdr) hdr.querySelector('.arr').textContent='▼ 접기'; }
+    document.getElementById('apiSection').scrollIntoView({ behavior:'smooth', block:'start' });
+    showToast('API 키를 먼저 설정해주세요'); return;
+  }
+  if (!_tsvHeaders.length) { showToast('먼저 검토를 실행해주세요.'); return; }
+
+  const btn  = document.getElementById('scenarioBtn');
+  const prog = document.getElementById('spellProgress');
+  btn.disabled = true;
+  prog.classList.add('show');
+
+  // 컬럼 인덱스 찾기
+  const norm = h => (h||'').replace(/\s/g,'');
+  const ci   = name => _tsvHeaders.findIndex(h => norm(h) === norm(name));
+  const screenIdx = ci('화면명');
+  const typeIdx   = ci('테스트구분');
+  const scenIdx   = ci('테스트시나리오');
+  const expIdx    = ci('예상결과');
+
+  // 화면명 기준으로 행 그룹핑
+  const groups = {};
+  const order  = [];
+  _tsvData.forEach((row, r) => {
+    const screen = screenIdx >= 0 ? trimCell(row[screenIdx] || '') : '(화면명 없음)';
+    if (!groups[screen]) { groups[screen] = []; order.push(screen); }
+    groups[screen].push({ r, row });
+  });
+
+  const allIssues = {};
+  let done = 0;
+
+  for (const screen of order) {
+    prog.textContent = `시나리오 검토 중… (${done}/${order.length} 화면)`;
+    const rowLines = groups[screen].map(({ r, row }) => {
+      const type = typeIdx >= 0 ? trimCell(row[typeIdx]||'') : '';
+      const scen = scenIdx >= 0 ? trimCell(row[scenIdx]||'') : '';
+      const exp  = expIdx  >= 0 ? trimCell(row[expIdx] ||'') : '';
+      return `[행${r+2}] (${type||'?'}) 시나리오: ${scen} / 예상결과: ${exp}`;
+    }).join('\n');
+
+    try {
+      const res = await callOpenAIScenario(screen, rowLines);
+      if (res.issues?.length) allIssues[screen] = res.issues;
+    } catch(e) {
+      if (e.status === 401) { prog.textContent = '⚠ API 키 오류 — 키를 다시 확인해주세요.'; break; }
+      if (e.status === 429) { prog.textContent = '⚠ 요청 한도 초과 — 잠시 후 다시 시도해주세요.'; break; }
+      prog.textContent = `⚠ 오류: ${e.message}`; break;
+    }
+    done++;
+    await new Promise(res => setTimeout(res, 300));
+  }
+
+  if (done === order.length) prog.textContent = `✓ 시나리오 검토 완료 — ${order.length}개 화면 분석`;
+  renderScenarioResults(allIssues);
+  btn.disabled = false;
 }
 
 async function runAIReview() {
