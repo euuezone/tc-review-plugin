@@ -693,7 +693,7 @@ function parseFigma(raw) {
     const parsed = parseFigmaRow(line);
     if (parsed) {
       // ③ 임시 마커를 실제 줄바꿈으로 복원
-      dataRows.push(parsed.map(cell => cell.replace(/ /g, '\n')));
+      dataRows.push(parsed.map(cell => cell.replace(/\u2028/g, '\n')));
     }
   }
 
