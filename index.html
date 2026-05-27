@@ -541,6 +541,12 @@ const RULES_UI = [
       ['조회','데이터 조회·검색 결과 정확성 검증'],
       ['UI','화면 구성·인터페이스·메시지·화면 동작 검증'],
     ] },
+  { cat:'시나리오-결과 관계', t:'warning',
+    items:[
+      ['예상결과에 "~선택 시" 등 행위 조건 포함','예상결과는 행위 후 보여지는 데이터/화면을 기재'],
+      ['예상결과가 "선택/클릭/진입" 등 행위로만 끝남','행위 후 나타나는 데이터 모습을 추가'],
+      ['시나리오가 "데이터 노출/화면 노출" 등 결과 표현으로만 구성','시나리오는 사용자 행위(선택/조회/입력)를 기재'],
+    ] },
   { cat:'용어 일관성 (파일 전체 검사)', t:'warning',
     items:[
       ['마우스 호버 ↔ 마우스 오버 혼용','같은 파일 내 "마우스 오버"로 통일'],
@@ -999,6 +1005,61 @@ function runReview() {
           }
         }
       }
+      // ── 행 단위 교차 검사: 시나리오 ↔ 예상결과 논리 관계 ──
+      if (colIdxScenario !== -1 && colIdxExpected !== -1) {
+        const scenario = trimCell(data[r][colIdxScenario] || '');
+        const expected = trimCell(data[r][colIdxExpected] || '');
+
+        if (scenario && expected) {
+          const pushExpIss = (iss) => {
+            const key = `${r}-${colIdxExpected}`;
+            if (!issueMap[key]) issueMap[key] = [];
+            issueMap[key].push(iss);
+            ALL_ISSUES.push({ row: r + 2, col: colIdxExpected, colName: headers[colIdxExpected], iss });
+          };
+          const pushScnIss = (iss) => {
+            const key = `${r}-${colIdxScenario}`;
+            if (!issueMap[key]) issueMap[key] = [];
+            issueMap[key].push(iss);
+            ALL_ISSUES.push({ row: r + 2, col: colIdxScenario, colName: headers[colIdxScenario], iss });
+          };
+
+          // ① 예상결과에 행위 조건 표현 포함 ("~선택 시", "~클릭 시" 등)
+          if (/(?:선택|클릭|진입|입력|터치|탭)\s*시\b/.test(expected)) {
+            pushExpIss({
+              type: 'warning', cat: '시나리오-결과 관계',
+              matched: expected.match(/\S+\s*시\b/)?.[0] || '~시',
+              suggest: '예상결과에 행위 조건("~시") 포함 — 예상결과는 행위 후 보여지는 데이터/화면을 기재',
+              reason: '"~시"는 행위 조건 표현으로 시나리오에 어울림, 예상결과에는 결과 데이터 모습을 기재',
+              msg: '[시나리오-결과] 예상결과에 행위 조건 표현 포함'
+            });
+          }
+
+          // ② 예상결과가 행위 단어로만 끝남 (데이터 모습 없음)
+          if (/(?:선택|클릭|진입|입력|터치|이동)\s*$/.test(expected) &&
+              !/노출|표시|확인|완료|데이터|화면|팝업|바텀/.test(expected)) {
+            pushExpIss({
+              type: 'warning', cat: '시나리오-결과 관계',
+              matched: expected,
+              suggest: '예상결과가 행위로만 기술됨 — 행위 후 보여지는 데이터/화면 모습을 추가',
+              reason: '예상결과는 사용자 행위가 아닌, 시스템이 보여주는 데이터 모습을 서술',
+              msg: '[시나리오-결과] 예상결과가 행위 표현 — 결과 데이터 모습 추가 필요'
+            });
+          }
+
+          // ③ 테스트 시나리오가 결과 표현으로만 구성됨 (행위 없음)
+          if (/^(?:데이터\s*노출|화면\s*노출|정상\s*노출|목록\s*노출|리스트\s*노출)\s*$/.test(scenario)) {
+            pushScnIss({
+              type: 'warning', cat: '시나리오-결과 관계',
+              matched: scenario,
+              suggest: '시나리오가 결과 표현 — 시나리오는 사용자 행위(선택/조회/입력 등)를 기재',
+              reason: '"데이터 노출" 등 결과 표현은 예상결과에, 시나리오에는 구체적 행위를 기재',
+              msg: '[시나리오-결과] 시나리오가 결과 표현 — 사용자 행위로 수정 필요'
+            });
+          }
+        }
+      }
+
       // ── 행 단위 교차 검사: 예상결과에 "데이터 노출" 포함 시 테스트 구분 확인 ──
       if (colIdxTestDiv !== -1 && colIdxExpected !== -1) {
         const testDiv  = trimCell(data[r][colIdxTestDiv]  || '');
