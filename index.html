@@ -351,8 +351,7 @@ td.cs { background: #EEF2FF !important; border-left: 3px solid #818CF8; }
         <span class="t-hint">빨간 셀: 오류 · 노란 셀: 경고 · 파란 헤더(✓): 검토 대상 컬럼</span>
       </div>
       <div class="copy-btns">
-        <button class="btn btn-scenario" id="scenarioBtn" onclick="runScenarioReview()">🔍 시나리오 AI 검토</button>
-        <button class="btn btn-spell" id="spellBtn" onclick="runAIReview()">🤖 표기 AI 검토</button>
+        <button class="btn btn-scenario" id="aiBtn" onclick="runCombinedReview()">🤖 AI 전체 검토</button>
         <button class="btn btn-copy-excel" onclick="downloadExcel()">📥 엑셀 다운로드</button>
         <button class="btn btn-save-pdf" onclick="savePDF()">📄 PDF 저장</button>
       </div>
@@ -1243,7 +1242,6 @@ function downloadExcel() {
 // 맞춤법 검사 (OpenAI ChatGPT API)
 // ════════════════════════════════════════════
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
-const SPELL_BATCH    = 40; // 한 번에 보낼 셀 수
 
 function loadApiSettings() {
   const key = localStorage.getItem('openai_api_key') || '';
@@ -1260,83 +1258,39 @@ function saveApiSettings() {
   showToast('API 키 저장 완료');
 }
 
-const AI_SYSTEM_PROMPT = `당신은 한국어 TC(테스트케이스) 문서 품질 검토 전문가입니다.
-아래 검토 기준으로 오류를 찾아 JSON으로만 반환하세요.
+// ════════════════════════════════════════════
+// AI 통합 검토 (시나리오 흐름 + 표기 품질 동시)
+// ════════════════════════════════════════════
+const COMBINED_PROMPT = `당신은 모바일 금융 앱(MTS) TC(테스트케이스) 문서 QA 전문가입니다.
+여러 화면의 TC를 분석하여 두 가지를 동시에 검토해주세요.
 
-[검토 기준]
+━━ ① 시나리오 흐름 검토 ━━
+실제 테스터가 앱을 직접 클릭하며 검증한다는 관점으로:
+- 누락: 완전한 테스트를 위해 반드시 있어야 할 케이스가 없는 경우 (화면 최초 진입·정상·예외·분기 케이스)
+- 순서: 진입→UI확인→조회→처리 흐름이 맞지 않거나 선행 조건 케이스가 없는 경우
+- 잘못됨: 시나리오 내용·예상결과가 틀리거나 서로 모순되는 경우
+- 불명확: 어떤 상태에서 어떤 동작인지 알 수 없어 테스트 기준이 불분명한 경우
 
-▶ 맞춤법·오타
-- 잘못된 철자, 오타 전반
+━━ ② 표기 품질 검토 ━━
+각 셀의 텍스트에서 오류를 찾아주세요:
 
-▶ 띄어쓰기 오류 (붙여 쓴 경우 → 띄어 써야 함)
-- 선택시→선택 시, 클릭시→클릭 시, 입력시→입력 시, 진입시→진입 시
-- 확인시→확인 시, 완료시→완료 시, 실패시→실패 시, 처리시→처리 시
-- 변경시→변경 시, 조회시→조회 시, 취소시→취소 시, 이동시→이동 시
-- 팝업노출→팝업 노출, 화면노출→화면 노출, 노출확인→노출 확인
-- 화면내→화면 내, 높은순→높은 순, 검색후→검색 후
+▶ 맞춤법·오타: 잘못된 철자, 오타 전반
+▶ 띄어쓰기 오류 (붙여쓴→띄어써야): 선택시→선택 시, 클릭시→클릭 시, 진입시→진입 시, 팝업노출→팝업 노출, 화면내→화면 내
+▶ 붙여쓰기 오류 (띄어쓴→붙여써야): 화면 상→화면상, 최신 순→최신순, 선택 한→선택한
+▶ 용어 오류: 알럿→Alert, 드롭다운→Select Box, 레이어팝업→바텀시트, 탭(tap)→선택
+▶ 율/률: 모음·ㄴ받침 뒤 →율(과세율), 그 외 받침 뒤 →률(수익률)
+▶ 문장부호: 빗금 앞뒤 공백 제거(" / "→"/")
+▶ 문체: "~며," →"및"으로, "및"이 2회 이상→두번째부터"/"로
+▶ 범례: 바텀시트/레이어팝업→(L), 바텀시트 오픈→바텀시트 노출
+▶ 예상결과: "팝업 노출"→"팝업 노출되며 [내용] 데이터 노출", "화면 이동"→"[화면명] 화면으로 이동"
 
-▶ 붙여쓰기 오류 (띄어 쓴 경우 → 붙여 써야 함)
-- 투자성향 별→투자성향별, 화면 상→화면상, 최신 순→최신순
-- 선택 한→선택한, 보유 한→보유한, 입력 한→입력한 등 동사+한 붙여쓰기
+━━ 반환 형식 ━━
+{"screens":[{"screen":"화면명","flow":[{"type":"누락|순서|잘못됨|불명확","rows":["행N"],"message":"설명","suggestion":"개선안"}],"text":[{"row":"행N","col":"컬럼명","wrong":"틀린표현","right":"올바른표현","category":"카테고리"}]}]}
+이슈 없는 경우 해당 배열을 빈 배열([])로 반환하세요.`;
 
-▶ 용어 오류 (오용 → 공식 용어)
-- 알럿·alert→Alert, 드롭다운·드랍다운·드롭 다운→Select Box
-- 디폴트·default→Default
-- 레이어팝업·레이어 팝업→바텀시트 또는 팝업(P)
-- 계좌 선택 팝업→계좌 선택 바텀시트
-- 탭(tap)→선택
-
-▶ 율/률 혼동
-- 모음·ㄴ 받침 뒤: 과세률→과세율, 할인률→할인율, 전환률→전환율
-- 그 외 받침 뒤: 적립율→적립률, 환급율→환급률, 수익율→수익률
-
-▶ 문장부호
-- 빗금 앞뒤 공백 " / "→"/" (공백 제거)
-- ^ 기호→실제 공백으로 수정
-
-▶ 쌍점 오사용 (콜론 뒤 나열 → 서술형으로)
-- "라디오 버튼:" → "라디오 버튼 [항목명] 선택 * [옵션1(Default), 옵션2]" 형식
-- "Select Box:" → "[항목명] Select Box 선택 * [옵션1(Default), 옵션2]" 형식
-
-▶ 문체
-- "~며," 서술형 지양 → "및"으로 연결
-- "및"이 같은 문장에 2회 이상 → 두 번째부터 "/" 또는 "*"로 변경
-- "되어" 표현 → 구체적 서술로 (예: 노출되며, 열리며, 토글되며)
-
-▶ 범례 표기
-- (P)=팝업, (L)=레이어팝업/바텀시트, (T)=탭, (B)=버튼
-- 바텀시트/레이어팝업 언급 시 (L) 표기 권장
-- (레이어팝업)·(바텀시트) → (L) 로 표기
-- "바텀시트 오픈" → "바텀시트 노출"
-
-▶ 계좌 표기
-- 계좌번호 노출확인→계좌번호 노출 확인 (띄어쓰기)
-- 계좌 선택 팝업→계좌 선택 바텀시트
-
-▶ 테스트구분 컬럼 검증
-- 허용값: 처리 / 조회 / UI 세 가지만 허용
-- 처리: 데이터 생성·변경·삭제 기능
-- 조회: 데이터 조회·검색 결과 검증
-- UI: 화면 구성·버튼·메시지·팝업 동작 검증
-- 위 세 값 이외가 입력된 경우 오류
-
-▶ TC 작성 기준
-- 상단 (X) 닫기 버튼 동작은 TC 작성 대상 제외
-- "닫기 버튼 선택 시 팝업 닫힘"처럼 단순 레이어 종료만 수행하는 경우 TC 생략 기준
-- 예상결과 세부설명 필요 시 * 표시로 작성
-
-▶ 예상결과 데이터 구체화
-- "팝업 노출"처럼 단순 표현 → "팝업 노출되며 [내용] 데이터 노출" 형식으로 구체화
-- "화면 이동" → "[화면명] 화면으로 이동하며 [내용] 데이터 노출"
-- "정상 노출" → 어떤 데이터가 노출되는지 구체적으로 명시
-
-반환 형식(오류 있는 항목만):
-{"results":[{"idx":숫자,"errors":[{"category":"카테고리","wrong":"틀린부분","right":"올바른표현","reason":"이유"}]}]}
-오류 없으면: {"results":[]}`;
-
-async function callOpenAIBatch(texts) {
-  const key  = localStorage.getItem('openai_api_key') || '';
-  const list = texts.map((t, i) => `${i}: "${t.replace(/\\/g,'\\\\').replace(/"/g,'\\"')}"`).join('\n');
+async function callCombinedAPI(batchScreens) {
+  const key = localStorage.getItem('openai_api_key') || '';
+  const userContent = batchScreens.map(s => `=== 화면명: ${s.name} ===\n${s.rowLines}`).join('\n\n');
   const resp = await fetch(OPENAI_API_URL, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
@@ -1345,8 +1299,8 @@ async function callOpenAIBatch(texts) {
       temperature: 0,
       response_format: { type: 'json_object' },
       messages: [
-        { role: 'system', content: AI_SYSTEM_PROMPT },
-        { role: 'user',   content: `문장 목록:\n${list}` }
+        { role: 'system', content: COMBINED_PROMPT },
+        { role: 'user',   content: userContent }
       ]
     })
   });
@@ -1355,51 +1309,7 @@ async function callOpenAIBatch(texts) {
     throw Object.assign(new Error(err.error?.message || `HTTP ${resp.status}`), { status: resp.status });
   }
   const data = await resp.json();
-  return JSON.parse(data.choices?.[0]?.message?.content || '{"results":[]}');
-}
-
-// ════════════════════════════════════════════
-// AI 시나리오 흐름 검토 (누락·순서·논리 오류)
-// ════════════════════════════════════════════
-const SCENARIO_PROMPT = `당신은 모바일 금융 앱(MTS) QA 전문가입니다.
-아래 TC(테스트케이스) 시나리오를 실제 테스터가 앱을 직접 클릭하며 검증한다는 관점으로 검토해주세요.
-
-[검토 기준]
-1. 누락: 이 화면/기능을 완전히 테스트하기 위해 반드시 있어야 할 케이스가 빠졌는가?
-   - 화면 최초 진입 및 초기 상태 확인 케이스
-   - 정상(Happy path) / 예외(오류·미입력·권한 없음 등) 케이스
-   - 분기 조건(A일 때 / B일 때)별 케이스
-2. 순서: 시나리오 순서가 실제 앱 사용 흐름과 맞는가?
-   - 일반 순서: 화면 진입 → UI 확인 → 조회 → 처리
-   - 선행 조건이 필요한 케이스가 선행 케이스 이후에 위치하는가
-3. 잘못됨: 시나리오 내용이나 예상결과가 틀리거나 서로 모순되는 경우
-4. 불명확: 어떤 상태에서 어떤 동작을 하는지 알 수 없어 테스트 기준이 불분명한 경우
-
-이슈가 있는 경우만 JSON으로 반환하세요:
-{"issues":[{"type":"누락|순서|잘못됨|불명확","rows":["행N","행M"],"message":"구체적 설명","suggestion":"개선안"}]}
-이슈 없으면: {"issues":[]}`;
-
-async function callOpenAIScenario(screenName, rowsText) {
-  const key  = localStorage.getItem('openai_api_key') || '';
-  const resp = await fetch(OPENAI_API_URL, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      temperature: 0,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: SCENARIO_PROMPT },
-        { role: 'user',   content: `화면명: ${screenName}\n\nTC 목록:\n${rowsText}` }
-      ]
-    })
-  });
-  if (!resp.ok) {
-    const err = await resp.json().catch(() => ({}));
-    throw Object.assign(new Error(err.error?.message || `HTTP ${resp.status}`), { status: resp.status });
-  }
-  const data = await resp.json();
-  return JSON.parse(data.choices?.[0]?.message?.content || '{"issues":[]}');
+  return JSON.parse(data.choices?.[0]?.message?.content || '{"screens":[]}');
 }
 
 function renderScenarioResults(allIssues) {
@@ -1433,31 +1343,31 @@ function renderScenarioResults(allIssues) {
   section.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-async function runScenarioReview() {
+async function runCombinedReview() {
   const key = localStorage.getItem('openai_api_key') || '';
   if (!key) {
     const body = document.getElementById('apiBody');
     const hdr  = document.querySelector('#apiSection .col-hdr');
-    if (body.style.display === 'none') { body.style.display='block'; if(hdr) hdr.querySelector('.arr').textContent='▼ 접기'; }
-    document.getElementById('apiSection').scrollIntoView({ behavior:'smooth', block:'start' });
+    if (body && body.style.display === 'none') { body.style.display = 'block'; if (hdr) hdr.querySelector('.arr').textContent = '▼ 접기'; }
+    document.getElementById('apiSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
     showToast('API 키를 먼저 설정해주세요'); return;
   }
   if (!_tsvHeaders.length) { showToast('먼저 검토를 실행해주세요.'); return; }
 
-  const btn  = document.getElementById('scenarioBtn');
+  const btn  = document.getElementById('aiBtn');
   const prog = document.getElementById('spellProgress');
   btn.disabled = true;
   prog.classList.add('show');
+  prog.textContent = 'AI 전체 검토 준비 중…';
 
-  // 컬럼 인덱스 찾기
   const norm = h => (h||'').replace(/\s/g,'');
   const ci   = name => _tsvHeaders.findIndex(h => norm(h) === norm(name));
-  const screenIdx = ci('화면명');
-  const typeIdx   = ci('테스트구분');
-  const scenIdx   = ci('테스트시나리오');
-  const expIdx    = ci('예상결과');
+  const screenIdx  = ci('화면명');
+  const typeIdx    = ci('테스트구분');
+  const scenIdx    = ci('테스트시나리오');
+  const expIdx     = ci('예상결과');
+  const targetIdxs = _tsvHeaders.map((h, i) => isTargetCol(h) ? i : -1).filter(i => i >= 0);
 
-  // 화면명 기준으로 행 그룹핑
   const groups = {};
   const order  = [];
   _tsvData.forEach((row, r) => {
@@ -1466,89 +1376,56 @@ async function runScenarioReview() {
     groups[screen].push({ r, row });
   });
 
-  const allIssues = {};
-  let done = 0;
-
-  for (const screen of order) {
-    prog.textContent = `시나리오 검토 중… (${done}/${order.length} 화면)`;
+  const screenDataList = order.map(screen => {
     const rowLines = groups[screen].map(({ r, row }) => {
-      const type = typeIdx >= 0 ? trimCell(row[typeIdx]||'') : '';
-      const scen = scenIdx >= 0 ? trimCell(row[scenIdx]||'') : '';
-      const exp  = expIdx  >= 0 ? trimCell(row[expIdx] ||'') : '';
-      return `[행${r+2}] (${type||'?'}) 시나리오: ${scen} / 예상결과: ${exp}`;
+      const type  = typeIdx >= 0 ? trimCell(row[typeIdx]||'') : '';
+      const scen  = scenIdx >= 0 ? trimCell(row[scenIdx]||'') : '';
+      const exp   = expIdx  >= 0 ? trimCell(row[expIdx] ||'') : '';
+      const cells = targetIdxs.map(c => {
+        const v = trimCell(row[c]||'');
+        return v ? `[${_tsvHeaders[c]}:"${v}"]` : '';
+      }).filter(Boolean).join(' ');
+      return `[행${r+2}](${type||'?'}) 시나리오:${scen} / 예상결과:${exp}${cells ? ' | '+cells : ''}`;
     }).join('\n');
+    return { name: screen, rowLines };
+  });
 
-    try {
-      const res = await callOpenAIScenario(screen, rowLines);
-      if (res.issues?.length) allIssues[screen] = res.issues;
-    } catch(e) {
-      if (e.status === 401) { prog.textContent = '⚠ API 키 오류 — 키를 다시 확인해주세요.'; break; }
-      if (e.status === 429) { prog.textContent = '⚠ 요청 한도 초과 — 잠시 후 다시 시도해주세요.'; break; }
-      prog.textContent = `⚠ 오류: ${e.message}`; break;
+  const BATCH_SIZE = 6;
+  const batches = [];
+  for (let i = 0; i < screenDataList.length; i += BATCH_SIZE) {
+    batches.push(screenDataList.slice(i, i + BATCH_SIZE));
+  }
+
+  prog.textContent = `AI 전체 검토 중… (${batches.length}개 배치 병렬 실행)`;
+
+  const allFlowIssues = {};
+  _spellMap = {};
+
+  const results = await Promise.allSettled(batches.map(batch => callCombinedAPI(batch)));
+
+  let errMsg = null;
+  results.forEach(res => {
+    if (res.status === 'rejected') {
+      const e = res.reason;
+      if (!errMsg) errMsg = e.status === 401 ? '⚠ API 키 오류 — 키를 다시 확인해주세요.' : e.status === 429 ? '⚠ 요청 한도 초과 — 잠시 후 다시 시도해주세요.' : `⚠ 오류: ${e.message}`;
+      return;
     }
-    done++;
-    await new Promise(res => setTimeout(res, 300));
-  }
-
-  if (done === order.length) prog.textContent = `✓ 시나리오 검토 완료 — ${order.length}개 화면 분석`;
-  renderScenarioResults(allIssues);
-  btn.disabled = false;
-}
-
-async function runAIReview() {
-  const key = localStorage.getItem('openai_api_key') || '';
-  if (!key) {
-    const body = document.getElementById('apiBody');
-    const hdr  = document.querySelector('#apiSection .col-hdr');
-    if (body.style.display === 'none') { body.style.display = 'block'; if (hdr) hdr.querySelector('.arr').textContent = '▼ 접기'; }
-    document.getElementById('apiSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    showToast('API 키를 먼저 설정해주세요'); return;
-  }
-  if (!_tsvHeaders.length) { showToast('먼저 검토를 실행해주세요.'); return; }
-
-  const btn  = document.getElementById('spellBtn');
-  const prog = document.getElementById('spellProgress');
-  btn.disabled = true;
-  prog.classList.add('show');
-
-  const targetIdxs = _tsvHeaders.map((h, i) => isTargetCol(h) ? i : -1).filter(i => i >= 0);
-  const cellMap = {};
-  _tsvData.forEach((row, r) => {
-    targetIdxs.forEach(c => {
-      const cell = trimCell(row[c] || '');
-      if (!cell || cell.length < 2) return;
-      if (!cellMap[cell]) cellMap[cell] = [];
-      cellMap[cell].push({ r, c });
+    (res.value.screens || []).forEach(sr => {
+      if (sr.flow?.length) allFlowIssues[sr.screen] = sr.flow;
+      (sr.text || []).forEach(issue => {
+        const rowNum = parseInt((issue.row||'').replace(/[^0-9]/g,''), 10) - 2;
+        const colIdx = _tsvHeaders.findIndex(h => norm(h) === norm(issue.col||''));
+        if (rowNum >= 0 && colIdx >= 0) {
+          const k = `${rowNum}-${colIdx}`;
+          if (!_spellMap[k]) _spellMap[k] = [];
+          _spellMap[k].push({ category: issue.category||'표기', wrong: issue.wrong||'', right: issue.right||'', reason: '' });
+        }
+      });
     });
   });
 
-  const uniqueTexts = Object.keys(cellMap);
-  const resultCache = {};
-  let stopped = false;
-
-  for (let i = 0; i < uniqueTexts.length; i += SPELL_BATCH) {
-    const batch = uniqueTexts.slice(i, i + SPELL_BATCH);
-    prog.textContent = `AI 검토 중… (${i}/${uniqueTexts.length}개 셀)`;
-    try {
-      const res = await callOpenAIBatch(batch);
-      (res.results || []).forEach(item => {
-        const text = batch[item.idx];
-        if (text && item.errors?.length) resultCache[text] = item.errors;
-      });
-    } catch (e) {
-      if (e.status === 401) { prog.textContent = '⚠ API 키 오류 — OpenAI API 키를 다시 확인해주세요.'; stopped = true; break; }
-      if (e.status === 429) { prog.textContent = '⚠ 요청 한도 초과 — 잠시 후 다시 시도해주세요.'; stopped = true; break; }
-      prog.textContent = `⚠ 오류 발생: ${e.message}`; stopped = true; break;
-    }
-  }
-
-  if (!stopped) prog.textContent = `✓ AI 검토 완료 — ${uniqueTexts.length}개 셀 검사`;
-
-  _spellMap = {};
-  Object.entries(resultCache).forEach(([text, errors]) => {
-    (cellMap[text] || []).forEach(({ r, c }) => { _spellMap[`${r}-${c}`] = errors; });
-  });
-
+  prog.textContent = errMsg || `✓ AI 전체 검토 완료 — ${order.length}개 화면 분석`;
+  renderScenarioResults(allFlowIssues);
   renderTable(_tsvHeaders, _tsvData, _issueMap, _spellMap);
   btn.disabled = false;
 }
