@@ -331,7 +331,7 @@ td.cs { background: #EEF2FF !important; border-left: 3px solid #818CF8; }
         <span class="t-hint">빨간 셀: 오류 · 노란 셀: 경고 · 파란 헤더(✓): 검토 대상 컬럼</span>
       </div>
       <div class="copy-btns">
-        <button class="btn btn-spell" id="spellBtn" onclick="runSpellCheck()">🔤 맞춤법 검사</button>
+        <button class="btn btn-spell" id="spellBtn" onclick="runAIReview()">🤖 AI 검토</button>
         <button class="btn btn-copy-excel" onclick="downloadExcel()">📥 엑셀 다운로드</button>
         <button class="btn btn-save-pdf" onclick="savePDF()">📄 PDF 저장</button>
       </div>
@@ -909,7 +909,7 @@ function renderTable(headers, data, issueMap, spellMap) {
       else if (issues.some(i => i.type === 'warning')) cls = (isCompact ? 'compact ' : '') + 'cw';
       else if (spells.length)                          cls = (isCompact ? 'compact ' : '') + 'cs';
       const tipParts = issues.map(i => i.msg);
-      if (spells.length) tipParts.push(...spells.map(s => `[맞춤법] "${s.wrong}" → "${s.right || s.suggestion || ''}""`));
+      if (spells.length) tipParts.push(...spells.map(s => `[${s.category||'AI'}] "${s.wrong}" → "${s.right||s.suggestion||''}"${s.reason ? ' ('+s.reason+')' : ''}`));
       const tip = tipParts.join('\n');
 
       let content = buildHtml(cell, viols);
@@ -1189,8 +1189,24 @@ function saveApiSettings() {
   showToast('API 키 저장 완료');
 }
 
-async function callOpenAISpell(texts) {
-  const key = localStorage.getItem('openai_api_key') || '';
+const AI_SYSTEM_PROMPT = `당신은 한국어 TC(테스트케이스) 문서 품질 검토 전문가입니다.
+아래 검토 기준으로 오류를 찾아 JSON으로만 반환하세요.
+
+[검토 기준]
+1. 맞춤법·오타: 잘못된 철자, 오타
+2. 띄어쓰기: 선택시→선택 시, 클릭시→클릭 시, 입력시→입력 시, 진입시→진입 시, 확인시→확인 시, 완료시→완료 시, 실패시→실패 시, 처리시→처리 시, 변경시→변경 시, 조회시→조회 시, 취소시→취소 시, 팝업노출→팝업 노출, 화면노출→화면 노출, 노출확인→노출 확인, 화면내→화면 내, 높은순→높은 순, 검색후→검색 후
+3. 붙여쓰기: 투자성향 별→투자성향별, 화면 상→화면상, 최신 순→최신순
+4. 용어: 알럿/alert→Alert, 드롭다운/드랍다운→Select Box, 디폴트/default→Default, 레이어 팝업→바텀시트 또는 팝업(P), 계좌 선택 팝업→계좌 선택 바텀시트, 탭(tap)→선택
+5. 율/률: 과세률→과세율, 할인률→할인율, 전환률→전환율, 적립율→적립률, 환급율→환급률, 수익율→수익률
+6. 문체: "~며," 서술형→"및"으로 연결, "및" 2회 이상→두 번째부터 "/"나 "*"로, "되어"→구체적 서술로, 빗금 앞뒤 공백( / )→(/)
+7. 기타 TC 문서에서 어색하거나 개선이 필요한 표현
+
+반환 형식(오류 있는 항목만):
+{"results":[{"idx":숫자,"errors":[{"category":"카테고리","wrong":"틀린부분","right":"올바른표현","reason":"이유"}]}]}
+오류 없으면: {"results":[]}`;
+
+async function callOpenAIBatch(texts) {
+  const key  = localStorage.getItem('openai_api_key') || '';
   const list = texts.map((t, i) => `${i}: "${t.replace(/\\/g,'\\\\').replace(/"/g,'\\"')}"`).join('\n');
   const resp = await fetch(OPENAI_API_URL, {
     method:  'POST',
@@ -1200,8 +1216,8 @@ async function callOpenAISpell(texts) {
       temperature: 0,
       response_format: { type: 'json_object' },
       messages: [
-        { role: 'system', content: '당신은 한국어 TC(테스트케이스) 문서의 맞춤법·띄어쓰기 교정 전문가입니다. 오류가 있는 항목만 JSON으로 반환하세요.' },
-        { role: 'user', content: `아래 문장들의 맞춤법과 띄어쓰기 오류를 검사하세요.\n오류가 있는 항목만 포함하여 다음 형식으로 반환하세요:\n{"results":[{"idx":숫자,"errors":[{"wrong":"틀린부분","right":"올바른표현"}]}]}\n오류 없으면 {"results":[]}\n\n문장 목록:\n${list}` }
+        { role: 'system', content: AI_SYSTEM_PROMPT },
+        { role: 'user',   content: `문장 목록:\n${list}` }
       ]
     })
   });
@@ -1213,7 +1229,7 @@ async function callOpenAISpell(texts) {
   return JSON.parse(data.choices?.[0]?.message?.content || '{"results":[]}');
 }
 
-async function runSpellCheck() {
+async function runAIReview() {
   const key = localStorage.getItem('openai_api_key') || '';
   if (!key) {
     const body = document.getElementById('apiBody');
@@ -1246,26 +1262,21 @@ async function runSpellCheck() {
 
   for (let i = 0; i < uniqueTexts.length; i += SPELL_BATCH) {
     const batch = uniqueTexts.slice(i, i + SPELL_BATCH);
-    prog.textContent = `맞춤법 검사 중… (${i}/${uniqueTexts.length})`;
+    prog.textContent = `AI 검토 중… (${i}/${uniqueTexts.length}개 셀)`;
     try {
-      const res = await callOpenAISpell(batch);
+      const res = await callOpenAIBatch(batch);
       (res.results || []).forEach(item => {
         const text = batch[item.idx];
         if (text && item.errors?.length) resultCache[text] = item.errors;
       });
     } catch (e) {
-      if (e.status === 401) {
-        prog.textContent = '⚠ API 키 오류 — OpenAI API 키를 다시 확인해주세요.'; stopped = true; break;
-      }
-      if (e.status === 429) {
-        prog.textContent = '⚠ 요청 한도 초과 — 잠시 후 다시 시도해주세요.'; stopped = true; break;
-      }
-      prog.textContent = `⚠ 오류 발생: ${e.message}`;
-      stopped = true; break;
+      if (e.status === 401) { prog.textContent = '⚠ API 키 오류 — OpenAI API 키를 다시 확인해주세요.'; stopped = true; break; }
+      if (e.status === 429) { prog.textContent = '⚠ 요청 한도 초과 — 잠시 후 다시 시도해주세요.'; stopped = true; break; }
+      prog.textContent = `⚠ 오류 발생: ${e.message}`; stopped = true; break;
     }
   }
 
-  if (!stopped) prog.textContent = `✓ 맞춤법 검사 완료 — ${uniqueTexts.length}개 셀 검사`;
+  if (!stopped) prog.textContent = `✓ AI 검토 완료 — ${uniqueTexts.length}개 셀 검사`;
 
   _spellMap = {};
   Object.entries(resultCache).forEach(([text, errors]) => {
