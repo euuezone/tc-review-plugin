@@ -303,10 +303,9 @@ td.cs { background: #EEF2FF !important; border-left: 3px solid #818CF8; }
       <span class="arr">▶ 펼치기</span>
     </div>
     <div class="col-body" id="apiBody" style="display:none">
-      <p class="hint">네이버 클라우드 플랫폼 콘솔 → AI·NAVER API → Korean Language → 이용 신청 후 발급받은 키를 입력하세요. 한 번 저장하면 다음에도 유지됩니다.</p>
+      <p class="hint">OpenAI API 키를 입력하세요. <a href="https://platform.openai.com/api-keys" target="_blank" style="color:var(--primary)">platform.openai.com/api-keys</a> 에서 발급받을 수 있어요. 한 번 저장하면 다음에도 유지됩니다.</p>
       <div class="api-setting-row">
-        <input type="text" id="ncpClientId" placeholder="Client ID (X-NCP-APIGW-API-KEY-ID)" autocomplete="off">
-        <input type="password" id="ncpClientSecret" placeholder="Client Secret (X-NCP-APIGW-API-KEY)" autocomplete="off">
+        <input type="password" id="openaiApiKey" placeholder="sk-..." autocomplete="off" style="max-width:420px">
         <button class="btn btn-p" onclick="saveApiSettings()">저장</button>
       </div>
       <div class="api-saved" id="apiSaved">✓ API 키 저장됨</div>
@@ -910,7 +909,7 @@ function renderTable(headers, data, issueMap, spellMap) {
       else if (issues.some(i => i.type === 'warning')) cls = (isCompact ? 'compact ' : '') + 'cw';
       else if (spells.length)                          cls = (isCompact ? 'compact ' : '') + 'cs';
       const tipParts = issues.map(i => i.msg);
-      if (spells.length) tipParts.push(...spells.map(s => `[맞춤법] "${s.wrong}" → "${s.suggestion}"`));
+      if (spells.length) tipParts.push(...spells.map(s => `[맞춤법] "${s.wrong}" → "${s.right || s.suggestion || ''}""`));
       const tip = tipParts.join('\n');
 
       let content = buildHtml(cell, viols);
@@ -926,11 +925,14 @@ function renderTable(headers, data, issueMap, spellMap) {
         const icls = iss.type === 'error' ? 'ifix' : 'isug';
         content += `<span class="${icls}">${esc(iss.suggest)}</span>`;
       });
-      // 맞춤법 오류 인라인 표시
+      // 맞춤법 오류 인라인 표시 (wrong/right 키 사용)
       spells.forEach(s => {
+        const wrongText = s.wrong || '';
+        const rightText = s.right || s.suggestion || '';
+        if (!wrongText || !rightText) return;
         content = content.replace(
-          new RegExp(s.wrong.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'),
-          `<mark class="hs">${esc(s.wrong)}</mark><span class="ispell">${esc(s.suggestion)}</span>`
+          new RegExp(wrongText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'),
+          `<mark class="hs">${esc(wrongText)}</mark><span class="ispell">${esc(rightText)}</span>`
         );
       });
       html += `<td class="${cls}" title="${esc(tip)}">${content}</td>`;
@@ -1166,87 +1168,59 @@ function downloadExcel() {
 }
 
 // ════════════════════════════════════════════
-// 맞춤법 검사 (네이버 클라우드 플랫폼)
 // ════════════════════════════════════════════
-const SPELL_API_URL = 'https://naveropenapi.apigw.ntruss.com/nlp-alpha/v1/spell-checker';
+// 맞춤법 검사 (OpenAI ChatGPT API)
+// ════════════════════════════════════════════
+const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
+const SPELL_BATCH    = 40; // 한 번에 보낼 셀 수
 
 function loadApiSettings() {
-  const id  = localStorage.getItem('ncp_client_id')  || '';
-  const sec = localStorage.getItem('ncp_client_secret') || '';
-  const idEl  = document.getElementById('ncpClientId');
-  const secEl = document.getElementById('ncpClientSecret');
-  if (idEl)  idEl.value  = id;
-  if (secEl) secEl.value = sec;
-  if (id && sec) document.getElementById('apiSaved').classList.add('show');
+  const key = localStorage.getItem('openai_api_key') || '';
+  const el  = document.getElementById('openaiApiKey');
+  if (el) el.value = key;
+  if (key) document.getElementById('apiSaved').classList.add('show');
 }
 
 function saveApiSettings() {
-  const id  = document.getElementById('ncpClientId').value.trim();
-  const sec = document.getElementById('ncpClientSecret').value.trim();
-  if (!id || !sec) { alert('Client ID와 Client Secret을 모두 입력해주세요.'); return; }
-  localStorage.setItem('ncp_client_id',     id);
-  localStorage.setItem('ncp_client_secret', sec);
+  const key = document.getElementById('openaiApiKey').value.trim();
+  if (!key || !key.startsWith('sk-')) { alert('올바른 OpenAI API 키를 입력해주세요. (sk-로 시작)'); return; }
+  localStorage.setItem('openai_api_key', key);
   document.getElementById('apiSaved').classList.add('show');
   showToast('API 키 저장 완료');
 }
 
-async function callSpellAPI(text) {
-  const id  = localStorage.getItem('ncp_client_id')  || '';
-  const sec = localStorage.getItem('ncp_client_secret') || '';
-  const resp = await fetch(SPELL_API_URL, {
+async function callOpenAISpell(texts) {
+  const key = localStorage.getItem('openai_api_key') || '';
+  const list = texts.map((t, i) => `${i}: "${t.replace(/\\/g,'\\\\').replace(/"/g,'\\"')}"`).join('\n');
+  const resp = await fetch(OPENAI_API_URL, {
     method:  'POST',
-    headers: {
-      'Content-Type':            'application/json',
-      'X-NCP-APIGW-API-KEY-ID':  id,
-      'X-NCP-APIGW-API-KEY':     sec
-    },
-    body: JSON.stringify({ text })
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      temperature: 0,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: '당신은 한국어 TC(테스트케이스) 문서의 맞춤법·띄어쓰기 교정 전문가입니다. 오류가 있는 항목만 JSON으로 반환하세요.' },
+        { role: 'user', content: `아래 문장들의 맞춤법과 띄어쓰기 오류를 검사하세요.\n오류가 있는 항목만 포함하여 다음 형식으로 반환하세요:\n{"results":[{"idx":숫자,"errors":[{"wrong":"틀린부분","right":"올바른표현"}]}]}\n오류 없으면 {"results":[]}\n\n문장 목록:\n${list}` }
+      ]
+    })
   });
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({}));
     throw Object.assign(new Error(err.error?.message || `HTTP ${resp.status}`), { status: resp.status });
   }
-  return resp.json();
-}
-
-function parseSpellErrors(original, data) {
-  const errors = [];
-  const html = data?.result?.html || '';
-  if (!html) return errors;
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
-  doc.querySelectorAll('[class*="wrong"], [class*="red"]').forEach(el => {
-    const wrong      = el.textContent.trim();
-    const suggestion = (el.getAttribute('help') || el.getAttribute('data-help') || '').trim();
-    if (!wrong || !suggestion || wrong === suggestion) return;
-    let searchFrom = 0;
-    let idx;
-    while ((idx = original.indexOf(wrong, searchFrom)) !== -1) {
-      errors.push({ wrong, suggestion, start: idx, end: idx + wrong.length });
-      searchFrom = idx + 1;
-    }
-  });
-  // 파싱 실패 시 교정본 전체로 폴백
-  if (!errors.length) {
-    const corrected = (data?.result?.notag_html || '').trim();
-    if (corrected && corrected !== original) {
-      errors.push({ wrong: original, suggestion: corrected, start: 0, end: original.length, wholeLine: true });
-    }
-  }
-  return errors;
+  const data = await resp.json();
+  return JSON.parse(data.choices?.[0]?.message?.content || '{"results":[]}');
 }
 
 async function runSpellCheck() {
-  const id  = localStorage.getItem('ncp_client_id')  || '';
-  const sec = localStorage.getItem('ncp_client_secret') || '';
-  if (!id || !sec) {
-    // API 키 없으면 설정 카드 펼치기
+  const key = localStorage.getItem('openai_api_key') || '';
+  if (!key) {
     const body = document.getElementById('apiBody');
     const hdr  = document.querySelector('#apiSection .col-hdr');
-    if (body.style.display === 'none') { body.style.display = 'block'; if(hdr) hdr.querySelector('.arr').textContent = '▼ 접기'; }
+    if (body.style.display === 'none') { body.style.display = 'block'; if (hdr) hdr.querySelector('.arr').textContent = '▼ 접기'; }
     document.getElementById('apiSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    showToast('API 키를 먼저 설정해주세요');
-    return;
+    showToast('API 키를 먼저 설정해주세요'); return;
   }
   if (!_tsvHeaders.length) { showToast('먼저 검토를 실행해주세요.'); return; }
 
@@ -1255,10 +1229,7 @@ async function runSpellCheck() {
   btn.disabled = true;
   prog.classList.add('show');
 
-  // 대상 컬럼 인덱스 수집
   const targetIdxs = _tsvHeaders.map((h, i) => isTargetCol(h) ? i : -1).filter(i => i >= 0);
-
-  // 중복 제거한 유니크 셀 텍스트 수집 (text -> [{r,c}])
   const cellMap = {};
   _tsvData.forEach((row, r) => {
     targetIdxs.forEach(c => {
@@ -1271,38 +1242,34 @@ async function runSpellCheck() {
 
   const uniqueTexts = Object.keys(cellMap);
   const resultCache = {};
-  let done = 0;
   let stopped = false;
 
-  for (const text of uniqueTexts) {
-    prog.textContent = `맞춤법 검사 중… (${done}/${uniqueTexts.length})`;
+  for (let i = 0; i < uniqueTexts.length; i += SPELL_BATCH) {
+    const batch = uniqueTexts.slice(i, i + SPELL_BATCH);
+    prog.textContent = `맞춤법 검사 중… (${i}/${uniqueTexts.length})`;
     try {
-      const data   = await callSpellAPI(text);
-      resultCache[text] = parseSpellErrors(text, data);
+      const res = await callOpenAISpell(batch);
+      (res.results || []).forEach(item => {
+        const text = batch[item.idx];
+        if (text && item.errors?.length) resultCache[text] = item.errors;
+      });
     } catch (e) {
-      if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
-        prog.textContent = '⚠ CORS 오류 — NCP 콘솔에서 CORS 허용 설정이 필요합니다 (Access-Control-Allow-Origin: *)';
-        stopped = true; break;
+      if (e.status === 401) {
+        prog.textContent = '⚠ API 키 오류 — OpenAI API 키를 다시 확인해주세요.'; stopped = true; break;
       }
-      if (e.status === 401 || e.status === 403) {
-        prog.textContent = '⚠ API 인증 오류 — Client ID / Secret을 다시 확인해주세요.';
-        stopped = true; break;
+      if (e.status === 429) {
+        prog.textContent = '⚠ 요청 한도 초과 — 잠시 후 다시 시도해주세요.'; stopped = true; break;
       }
-      resultCache[text] = []; // 오류 난 셀은 건너뜀
+      prog.textContent = `⚠ 오류 발생: ${e.message}`;
+      stopped = true; break;
     }
-    done++;
-    await new Promise(res => setTimeout(res, 220)); // rate limit: ~4 req/s
   }
 
   if (!stopped) prog.textContent = `✓ 맞춤법 검사 완료 — ${uniqueTexts.length}개 셀 검사`;
 
-  // spellMap 구성: "r-c" -> errors[]
   _spellMap = {};
   Object.entries(resultCache).forEach(([text, errors]) => {
-    if (!errors.length) return;
-    (cellMap[text] || []).forEach(({ r, c }) => {
-      _spellMap[`${r}-${c}`] = errors;
-    });
+    (cellMap[text] || []).forEach(({ r, c }) => { _spellMap[`${r}-${c}`] = errors; });
   });
 
   renderTable(_tsvHeaders, _tsvData, _issueMap, _spellMap);
