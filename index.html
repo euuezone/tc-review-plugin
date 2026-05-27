@@ -1758,7 +1758,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const text = (e.clipboardData || window.clipboardData).getData('text');
     const cleaned = text
       .split(/\r?\n/)
-      .map(line => line.replace(/^[\s 　﻿]+|[\s 　﻿]+$/g, ''))
+      .map(line => line.replace(/[\t 　﻿ ]+$/g, ''))  // 뒤쪽만, 앞 탭=빈셀 보존
       .join('\n');
     ta.value = cleaned;
     clearInputError();
