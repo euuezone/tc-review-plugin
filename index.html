@@ -924,6 +924,11 @@ function runReview() {
   ALL_ISSUES = [];
 
   try {
+    // 컬럼 인덱스 사전 계산
+    const normHeaders = headers.map(h => (h || '').replace(/\s/g,''));
+    const colIdxTestDiv  = normHeaders.findIndex(h => h === '테스트구분');
+    const colIdxExpected = normHeaders.findIndex(h => h === '예상결과');
+
     for (let r = 0; r < data.length; r++) {
       for (let c = 0; c < headers.length; c++) {
         const cell = trimCell(data[r][c] || '');
@@ -932,6 +937,25 @@ function runReview() {
         if (issues.length) {
           issueMap[`${r}-${c}`] = issues;
           issues.forEach(iss => ALL_ISSUES.push({ row: r + 2, col: c, colName: headers[c] || `${c+1}열`, iss }));
+        }
+      }
+      // ── 행 단위 교차 검사: 예상결과에 "데이터 노출" 포함 시 테스트 구분 확인 ──
+      if (colIdxTestDiv !== -1 && colIdxExpected !== -1) {
+        const testDiv  = trimCell(data[r][colIdxTestDiv]  || '');
+        const expected = trimCell(data[r][colIdxExpected] || '');
+        if (/데이터\s*노출/.test(expected) && testDiv === 'UI') {
+          const key = `${r}-${colIdxTestDiv}`;
+          const iss = {
+            type: 'warning',
+            cat: '테스트구분',
+            matched: 'UI',
+            suggest: '예상결과에 "데이터 노출"이 포함된 경우 테스트 구분은 "조회" 또는 "처리"로 변경',
+            reason: '데이터 노출 여부를 검증하는 TC는 조회/처리 구분에 해당',
+            msg: '[테스트구분] 예상결과에 "데이터 노출" 포함 → 테스트 구분을 "조회" 또는 "처리"로 변경'
+          };
+          if (!issueMap[key]) issueMap[key] = [];
+          issueMap[key].push(iss);
+          ALL_ISSUES.push({ row: r + 2, col: colIdxTestDiv, colName: headers[colIdxTestDiv], iss });
         }
       }
     }
