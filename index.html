@@ -216,6 +216,8 @@ mark.hw { background: #FCD34D; border-radius: 3px; padding: 0 2px; font-style: n
 .ai-flow-inline .ai-unclear { background:#E2E8F0; color:#475569; }
 .ai-flow-msg { font-size: 11px; font-weight: 600; color: #3B1478; flex: 1; }
 .ai-flow-sug { font-size: 11px; color: #6B21A8; width: 100%; padding-left: 2px; }
+.ai-flow-dismiss { margin-left: auto; background: none; border: none; color: #A0AEC0; font-size: 13px; cursor: pointer; padding: 0 4px; line-height: 1; flex-shrink: 0; }
+.ai-flow-dismiss:hover { color: #E53E3E; }
 
 /* ── 맞춤법 검사 ── */
 mark.hs { background: #E0E7FF; border-radius: 3px; padding: 0 2px; font-style: normal; }
@@ -1233,11 +1235,11 @@ function renderTable(headers, data, issueMap, spellMap, flowMap) {
     html += '</tr>';
     if (rowFlows.length) {
       const AI_CLS = { '누락':'ai-missing','순서':'ai-order','잘못됨':'ai-wrong','불명확':'ai-unclear' };
-      html += `<tr class="ai-flow-row"><td colspan="${headers.length}" class="ai-flow-cell">`;
-      rowFlows.forEach(iss => {
+      html += `<tr class="ai-flow-row" data-flow-row="${r}"><td colspan="${headers.length}" class="ai-flow-cell">`;
+      rowFlows.forEach((iss, issIdx) => {
         const t   = iss.type || '기타';
         const cls = AI_CLS[t] || 'ai-unclear';
-        html += `<div class="ai-flow-inline"><span class="ai-type-badge ${cls}">${esc(t)}</span><span class="ai-flow-msg">${esc(iss.message||'')}</span>${iss.suggestion ? `<span class="ai-flow-sug">💡 ${esc(iss.suggestion)}</span>` : ''}</div>`;
+        html += `<div class="ai-flow-inline" data-row="${r}" data-idx="${issIdx}"><span class="ai-type-badge ${cls}">${esc(t)}</span><span class="ai-flow-msg">${esc(iss.message||'')}</span>${iss.suggestion ? `<span class="ai-flow-sug">💡 ${esc(iss.suggestion)}</span>` : ''}<button class="ai-flow-dismiss" onclick="dismissFlowIssue(${r},${issIdx})" title="오탐 제거">✕</button></div>`;
       });
       html += `</td></tr>`;
     }
@@ -1342,6 +1344,13 @@ function toggleIssues(hdr) {
   const arr  = hdr.querySelector('.arr');
   const open = body.classList.toggle('open');
   arr.textContent = open ? '▼ 접기' : '▶ 펼쳐보기';
+}
+
+function dismissFlowIssue(rowIdx, issIdx) {
+  if (!_flowMap[rowIdx]) return;
+  _flowMap[rowIdx].splice(issIdx, 1);
+  if (_flowMap[rowIdx].length === 0) delete _flowMap[rowIdx];
+  renderTable(_tsvHeaders, _tsvData, _issueMap, _spellMap, _flowMap);
 }
 
 function clearAll() {
