@@ -205,6 +205,18 @@ mark.hw { background: #FCD34D; border-radius: 3px; padding: 0 2px; font-style: n
 .ai-suggestion { width: 100%; font-size: 11px; color: #64748B; margin-top: 3px; }
 .ai-ok { color: var(--ok); font-weight: 700; font-size: 13px; padding: 12px 0; }
 
+/* ── AI 시나리오 흐름 — 테이블 인라인 표시 ── */
+.tr-ai-flow > td:first-child { border-left: 3px solid #A78BFA; }
+.ai-flow-row td.ai-flow-cell { background: #FAF5FF; padding: 5px 14px 7px; border-bottom: 1px solid #DDD6FE; }
+.ai-flow-inline { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; padding: 3px 0; }
+.ai-flow-inline .ai-type-badge { font-size: 10px; padding: 1px 7px; border-radius: 10px; }
+.ai-missing .ai-type-badge, .ai-wrong .ai-type-badge,
+.ai-flow-inline .ai-missing, .ai-flow-inline .ai-wrong { background:#FCA5A5; color:#7F1D1D; }
+.ai-flow-inline .ai-order  { background:#FCD34D; color:#78350F; }
+.ai-flow-inline .ai-unclear { background:#E2E8F0; color:#475569; }
+.ai-flow-msg { font-size: 11px; font-weight: 600; color: #3B1478; flex: 1; }
+.ai-flow-sug { font-size: 11px; color: #6B21A8; width: 100%; padding-left: 2px; }
+
 /* ── 맞춤법 검사 ── */
 mark.hs { background: #E0E7FF; border-radius: 3px; padding: 0 2px; font-style: normal; }
 td.cs { background: #EEF2FF !important; border-left: 3px solid #818CF8; }
@@ -1162,9 +1174,11 @@ function isCompactCol(name) {
 }
 
 let _spellMap = {}; // "r-c" -> [{wrong, suggestion}]
+let _flowMap  = {}; // "r"   -> [{type, message, suggestion}] (AI 시나리오 흐름 이슈)
 
-function renderTable(headers, data, issueMap, spellMap) {
+function renderTable(headers, data, issueMap, spellMap, flowMap) {
   spellMap = spellMap || _spellMap;
+  flowMap  = flowMap  || _flowMap;
   let html = '<table><thead><tr>';
   headers.forEach(h => {
     const classes = [isTargetCol(h) ? 'th-target' : '', isCompactCol(h) ? 'th-compact' : ''].filter(Boolean).join(' ');
@@ -1173,7 +1187,8 @@ function renderTable(headers, data, issueMap, spellMap) {
   html += '</tr></thead><tbody>';
 
   data.forEach((row, r) => {
-    html += `<tr>`;
+    const rowFlows = (flowMap[r] || []);
+    html += `<tr${rowFlows.length ? ' class="tr-ai-flow"' : ''}>`;
     headers.forEach((h, c) => {
       const cell      = trimCell(row[c] || '');
       const issues    = issueMap[`${r}-${c}`] || [];
@@ -1216,6 +1231,16 @@ function renderTable(headers, data, issueMap, spellMap) {
       html += `<td class="${cls}" title="${esc(tip)}">${content}</td>`;
     });
     html += '</tr>';
+    if (rowFlows.length) {
+      const AI_CLS = { '누락':'ai-missing','순서':'ai-order','잘못됨':'ai-wrong','불명확':'ai-unclear' };
+      html += `<tr class="ai-flow-row"><td colspan="${headers.length}" class="ai-flow-cell">`;
+      rowFlows.forEach(iss => {
+        const t   = iss.type || '기타';
+        const cls = AI_CLS[t] || 'ai-unclear';
+        html += `<div class="ai-flow-inline"><span class="ai-type-badge ${cls}">${esc(t)}</span><span class="ai-flow-msg">${esc(iss.message||'')}</span>${iss.suggestion ? `<span class="ai-flow-sug">💡 ${esc(iss.suggestion)}</span>` : ''}</div>`;
+      });
+      html += `</td></tr>`;
+    }
   });
   html += '</tbody></table>';
   document.getElementById('tblOut').innerHTML = html;
@@ -1331,6 +1356,7 @@ function clearAll() {
   clearInputError();
   ALL_ISSUES = [];
   _spellMap = {};
+  _flowMap  = {};
 }
 
 // ════════════════════════════════════════════
@@ -1684,9 +1710,25 @@ async function runCombinedReview() {
     });
   });
 
+  // flowMap 빌드: 행 인덱스(0-based) → AI 흐름 이슈 목록
+  _flowMap = {};
+  Object.values(allFlowIssues).forEach(issues => {
+    issues.forEach(iss => {
+      (iss.rows || []).forEach(rowTag => {
+        const rowNum = parseInt((rowTag||'').replace(/[^0-9]/g, ''), 10);
+        if (isNaN(rowNum)) return;
+        const r = rowNum - 2;
+        if (r >= 0) {
+          if (!_flowMap[r]) _flowMap[r] = [];
+          _flowMap[r].push(iss);
+        }
+      });
+    });
+  });
+
   prog.textContent = errMsg || `✓ AI 전체 검토 완료 — ${order.length}개 화면 분석`;
   renderScenarioResults(allFlowIssues);
-  renderTable(_tsvHeaders, _tsvData, _issueMap, _spellMap);
+  renderTable(_tsvHeaders, _tsvData, _issueMap, _spellMap, _flowMap);
   btn.disabled = false;
 }
 
