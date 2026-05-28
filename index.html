@@ -667,7 +667,7 @@ function parseTSV(raw) {
  */
 function parseFigma(raw) {
   // ① 큰따옴표 안 줄바꿈을 임시 마커로 치환 → 멀티라인 셀이 행으로 쪼개지는 문제 방지
-  const NL_MARK = ' ';
+  const NL_MARK = '\u2028';
   let processed = '';
   let inQ = false;
   for (let i = 0; i < raw.length; i++) {
